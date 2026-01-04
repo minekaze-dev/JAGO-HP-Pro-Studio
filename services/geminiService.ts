@@ -25,7 +25,9 @@ const DEVICE_DESC_MAP = {
 };
 
 const fetchSingleVariation = async (config: PosterConfig, variationIndex: number, isRevision: boolean = false): Promise<GeneratedResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Inisialisasi sesuai panduan teknis: Menggunakan process.env.API_KEY secara langsung
+  // Pastikan API_KEY sudah diset di Vercel Environment Variables
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const layoutInstruction = `ADHERENCE TO GRID: Place the branding elements precisely in the ${config.logoPosition.replace('-', ' ')} sector. Use variation #${variationIndex + 1} of cinematic framing.`;
   
@@ -41,7 +43,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
   ${config.logoIconBase64 && config.logoTextBase64 
     ? "- BOTH ASSETS PROVIDED: Combine the 'Brand Icon' and 'Brand Text Logo' into a single unified high-end logo lockup." 
     : config.logoIconBase64 
-      ? "- ONLY ICON PROVIDED: Use ONLY the provided graphic icon. DO NOT add any arbitrary or phantom text next to it. The logo should be a stand-alone mark."
+      ? "- ONLY ICON PROVIDED: Use ONLY the provided graphic icon. DO NOT add any arbitrary or phantom text next to it."
       : config.logoTextBase64
         ? "- ONLY TEXT PROVIDED: Use ONLY the provided typographic logo asset. Do not add any extra icons."
         : "- NO ASSETS PROVIDED: Create a subtle, generic premium placeholder mark."}`;
@@ -83,24 +85,29 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
     parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: { parts },
-    config: { imageConfig: { aspectRatio: config.ratio } }
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+      config: { imageConfig: { aspectRatio: config.ratio } }
+    });
 
-  let imageUrl = '';
-  if (response.candidates?.[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-        break;
+    let imageUrl = '';
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
       }
     }
-  }
 
-  if (!imageUrl) throw new Error("Rendering failed.");
-  return { imageUrl, promptUsed: prompt };
+    if (!imageUrl) throw new Error("API did not return an image part.");
+    return { imageUrl, promptUsed: prompt };
+  } catch (err: any) {
+    console.error("Gemini Image Generation Error:", err);
+    throw new Error(err.message || "Failed to generate image. Please check your API key and quota.");
+  }
 };
 
 export const generatePosterBatch = async (config: PosterConfig, isRevision: boolean = false): Promise<GeneratedResult[]> => {
