@@ -201,7 +201,7 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-[#020202] text-slate-200 overflow-hidden font-inter">
       <header className="flex-none py-4 px-8 border-b border-white/5 flex items-center justify-between bg-black/80 z-50 backdrop-blur-3xl">
         <div className="flex items-center gap-4">
-          <img src="https://imgur.com/AmPZ1cP.jpg" alt="JAGO-HP Logo" className="w-14 h-14 object-cover rounded-lg shadow-lg border border-white/10" />
+          <img src="https://imgur.com/mPLryqS.jpg" alt="JAGO-HP Logo" className="w-14 h-14 object-cover rounded-lg shadow-lg border border-white/10" />
           <div className="flex flex-col">
             <div className="flex items-center gap-3">
               <span className="text-2xl font-black tracking-widest text-white uppercase italic font-orbitron">JAGO-HP</span>
