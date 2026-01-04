@@ -35,23 +35,22 @@ export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remo
        The image provided has BLUE BRUSH STROKES marking specific areas for removal.
        1. TARGET: Identify all pixels covered by the BLUE color. 
        2. ACTION: Remove ONLY the content directly underneath those blue markings.
-       3. INPAINTING: Fill the erased zones by seamlessly sampling from the immediate surrounding background.
+       3. INPAINTING: Fill the erased zones by seamlessly sampling from the surrounding background.
        4. FORBIDDEN: Do NOT alter, blur, or remove any text, logos, or objects that are NOT covered by the blue brush.
-       5. INTEGRITY: The final image must look original, as if the marked elements never existed, while preserving every other detail of the poster perfectly.`;
+       5. INTEGRITY: The final image must look original, as if the marked elements never existed.`;
   } else if (task === 'add-text-manual') {
     prompt = `STRICT INSTRUCTION: Your goal is to add text to this image exactly as described by the user. 
        User Instruction: "${extraPrompt}"
        1. INTEGRATION: The text must look like a natural, high-end part of the graphic design. 
-       2. TYPOGRAPHY: Use high-quality professional fonts that complement the existing poster's style and mood.
-       3. CLARITY: Ensure the added text is sharp, perfectly spelled, and highly readable.
-       4. AESTHETICS: Balance the composition so the new text doesn't clutter the main subject.`;
+       2. TYPOGRAPHY: Use high-quality professional fonts that complement the existing style.
+       3. CLARITY: Ensure the added text is sharp and highly readable.`;
   } else if (task === 'polish-design') {
     prompt = `PROFESSIONAL DESIGN REFURBISHMENT: 
-       1. COMPOSITION REPAIR: Analyze the entire image for unnatural gaps or empty spaces. 
-       2. SEAMLESS HARMONY: Smooth out textures and adjust the background elements (lighting, shapes, gradients) to ensure a perfectly flowing, professional composition.
-       3. VISUAL FLOW: Reconnect separated design elements so the poster looks like an original, high-end studio-designed asset.
-       4. ENHANCE: Subtly polish colors and contrast for a commercial-grade final output. 
-       5. RESTRICTION: DO NOT ADD NEW TEXT. DO NOT ADD ANY LOGOS OR ICONS. FOCUS ON COMPOSITION INTEGRITY.`;
+       1. COMPOSITION REPAIR: Analyze the entire image for unnatural gaps. 
+       2. SEAMLESS HARMONY: Smooth out textures and adjust the background elements to ensure a perfectly flowing, professional composition.
+       3. VISUAL FLOW: Reconnect separated design elements.
+       4. ENHANCE: Subtly polish colors and contrast. 
+       5. RESTRICTION: DO NOT ADD NEW TEXT. DO NOT ADD ANY LOGOS OR ICONS.`;
   }
 
   const parts = [
@@ -86,12 +85,50 @@ export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remo
 const fetchSingleVariation = async (config: PosterConfig, variationIndex: number, isRevision: boolean = false): Promise<GeneratedResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // If backgroundOnly is true, we strictly ignore everything else
+  if (config.backgroundOnly) {
+    const prompt = `You are an elite Digital Environment Artist.
+    TASK: Generate a World-Class Cinematic Studio Background Plate.
+    - MOOD: ${MOOD_PROMPT_MAP[config.mood]}
+    - VISUALS: Create a pure, high-end commercial environment. Use elegant lighting, sophisticated textures, and professional depth-of-field.
+    - STRICT PROHIBITION: 
+      1. ABSOLUTELY NO TEXT. 
+      2. ABSOLUTELY NO LOGOS. 
+      3. ABSOLUTELY NO SMARTPHONES, LAPTOPS, OR HARDWARE DEVICES.
+      4. ABSOLUTELY NO PEOPLE.
+    - FOCUS: Pure artistic atmosphere, lighting, and premium studio composition. This will be used as a design plate for a luxury tech brand.
+    - VARIATION ${variationIndex + 1}: ${variationIndex === 0 ? 'Geometric light play' : variationIndex === 1 ? 'Soft volumetric mist' : 'Sharp neon edge reflections'}.
+    TECHNICAL QUALITY: 8k resolution, photorealistic, cinematic rendering.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: [{ text: prompt }],
+        config: { imageConfig: { aspectRatio: config.ratio } }
+      });
+
+      let imageUrl = '';
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+      }
+      if (!imageUrl) throw new Error("API did not return an image part.");
+      return { imageUrl, promptUsed: prompt };
+    } catch (err: any) {
+      throw new Error(err.message || "Background generation failed.");
+    }
+  }
+
   const hasBranding = config.logoIconBase64 || config.logoTextBase64;
-  const layoutInstruction = `ADHERENCE TO GRID: ${hasBranding ? `Place the provided branding assets precisely in the ${config.logoPosition.replace('-', ' ')} sector.` : "STRICTLY DO NOT add any logos, icons, symbols, or branding marks to the image. Keep the layout completely free of logos."} Use variation #${variationIndex + 1} of cinematic framing.`;
+  const layoutInstruction = `ADHERENCE TO GRID: ${hasBranding ? `Place the provided branding assets precisely in the ${config.logoPosition.replace('-', ' ')} sector.` : "STRICTLY DO NOT add any logos, icons, symbols, or branding marks. Keep the layout free of logos."} Variation #${variationIndex + 1}.`;
   
   const titlePart = config.title.trim() 
-    ? `- Main Title: "${config.title}" using ${TITLE_SIZE_MAP[config.titleSize]}. MATCH EXACTLY.` 
-    : "- Main Title: DO NOT ADD ANY MAIN TITLE OR HEADLINE TEXT.";
+    ? `- Main Title: "${config.title}" using ${TITLE_SIZE_MAP[config.titleSize]}.` 
+    : "- Main Title: DO NOT ADD ANY MAIN TITLE TEXT.";
   
   const taglinePart = config.tagline.trim()
     ? `- Tagline: Must be exactly "${config.tagline}".`
@@ -99,49 +136,61 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
     
   const marketingPart = config.marketing.trim()
     ? `- Marketing Handle: Must be exactly "${config.marketing}".`
-    : "- Marketing Handle: DO NOT ADD ANY SOCIAL MEDIA OR MARKETING TEXT.";
+    : "- Marketing Handle: DO NOT ADD ANY SOCIAL MEDIA TEXT.";
 
   const typographyInstruction = `TYPOGRAPHY ACCURACY & STYLE: 
   ${titlePart}
   ${taglinePart}
   ${marketingPart}
   - CRITICAL: IF A TEXT FIELD IS EMPTY, DO NOT ADD TEXT FOR IT.
-  - STYLE: Use a clean, professional, high-end modern SANS-SERIF font (similar to Inter or Helvetica).
-  ${isRevision ? "- EMERGENCY CHECK: Previous version had spelling errors. Double-verify every single letter in all text fields before finalizing the image." : ""}`;
+  - STYLE: Use a clean, professional, high-end modern font. Use creative typographic arrangements for maximum visual appeal.`;
 
   const brandingLogic = `BRANDING ASSET INTEGRATION:
   ${config.logoIconBase64 && config.logoTextBase64 
-    ? "- BOTH ASSETS PROVIDED: Combine the 'Brand Icon' and 'Brand Text Logo' into a single unified high-end logo lockup." 
+    ? "- BOTH ASSETS PROVIDED: Combine Icon and Text Logo into a unified lockup." 
     : config.logoIconBase64 
-      ? "- ONLY ICON PROVIDED: Use ONLY the provided graphic icon. DO NOT add any arbitrary or phantom text next to it."
+      ? "- ONLY ICON PROVIDED: Use ONLY provided graphic icon."
       : config.logoTextBase64
-        ? "- ONLY TEXT PROVIDED: Use ONLY the provided typographic logo asset. Do not add any extra icons."
-        : "- NO ASSETS PROVIDED: ABSOLUTELY DO NOT ADD ANY LOGO, SYMBOL, ICON, OR PLACEHOLDER BRANDING. Leave the entire image clean of branding elements."}`;
+        ? "- ONLY TEXT PROVIDED: Use ONLY provided typographic logo."
+        : "- NO ASSETS PROVIDED: ABSOLUTELY DO NOT ADD ANY LOGO OR ICON."}`;
 
-  const mockupLogic = config.mockupScreenshot
-    ? `MOCKUP INTEGRATION: You are provided with a reference screenshot. Map this image EXACTLY onto the ${config.mockupType} screen. Ensure the screen content is perfectly integrated, sharp, and realistic within the hardware environment.`
-    : `MOCKUP HARDWARE: Render ${DEVICE_DESC_MAP[config.mockupType]} as the centerpiece.`;
+  let visualContext = "";
+  if (config.noMockup) {
+    visualContext = `
+    TASK: Design a high-impact Editorial Style Typography-First Poster.
+    - NO HARDWARE: Strictly DO NOT include any smartphones, laptops, PCs, or hardware devices.
+    - ART DIRECTION: Create a premium, cinematic abstract background that complements the text. Use dynamic light streaks, elegant gradients, or high-end studio textures.
+    - TYPOGRAPHY FOCUS: Since there is no physical product, the TYPOGRAPHY IS THE HERO. Arrange the text with extreme professional flair, balancing white space and bold focal points to attract customers instantly.
+    - DESIGN STYLE: Think high-fashion magazine covers or elite tech launch visuals. Use sophisticated layering where text might interact with background light/shadows.
+    `;
+  } else {
+    const mockupLogic = config.mockupScreenshot
+      ? `MOCKUP INTEGRATION: Map the provided screenshot image EXACTLY onto the ${config.mockupType} screen. Ensure realistic integration with reflections and glass textures.`
+      : `MOCKUP HARDWARE: Render ${DEVICE_DESC_MAP[config.mockupType]} as the centerpiece with commercial-grade studio lighting.`;
+    
+    visualContext = `
+    TASK: Design a hyper-realistic commercial poster for ${DEVICE_DESC_MAP[config.mockupType]}.
+    ${mockupLogic}
+    `;
+  }
 
-  const prompt = `You are a World-Class Senior Graphic Design Expert at a top-tier tech advertising agency. 
+  const prompt = `You are a World-Class Senior Graphic Design Expert. 
   
-  TASK: Design a hyper-realistic commercial poster for ${DEVICE_DESC_MAP[config.mockupType]} using the provided assets.
+  ${visualContext}
   
   ${brandingLogic}
   
-  ${mockupLogic}
-  
   STRICT RULES:
-  1. ABSOLUTELY NO TYPOS: Verify every character in the generated image. 
-  2. NO SELF-BRANDING: Do NOT include "JAGO-HP", "JAGOHP", or any other watermarks/text/logos not explicitly provided by the user. If branding assets are missing, leave the logo space empty.
+  1. NO TYPOS: Verify every character. 
+  2. NO SELF-BRANDING: Do NOT include watermarks/text not explicitly provided.
   3. COMPOSITION: ${layoutInstruction}
   4. FONTS: ${typographyInstruction}
   
   VISUALS:
-  - MAIN SUBJECT: ${DEVICE_DESC_MAP[config.mockupType]} featuring premium materials.
   - MOOD: ${MOOD_PROMPT_MAP[config.mood]}
   - LIGHTING: Variation ${variationIndex + 1}: ${variationIndex === 0 ? 'Dramatic rim lighting' : variationIndex === 1 ? 'Soft studio flood' : 'Neon accent glares'}.
   
-  TECHNICAL QUALITY: 8k resolution, photorealistic rendering, commercial photography standards, 300dpi clarity.`;
+  TECHNICAL QUALITY: 8k resolution, photorealistic, commercial photography standards.`;
 
   const parts: any[] = [{ text: prompt }];
   
@@ -151,7 +200,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
   if (config.logoTextBase64) {
     parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
   }
-  if (config.mockupScreenshot) {
+  if (!config.noMockup && config.mockupScreenshot) {
     parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
   }
 

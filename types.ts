@@ -39,6 +39,8 @@ export interface PosterConfig {
   mockupType: MockupDeviceType;
   logoPosition: PositionType;
   titleSize: TitleSizeType;
+  noMockup: boolean;
+  backgroundOnly: boolean;
 }
 
 export interface GeneratedResult {

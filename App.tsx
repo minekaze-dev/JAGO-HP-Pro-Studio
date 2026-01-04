@@ -25,6 +25,8 @@ const App: React.FC = () => {
     titleSize: 'h2',
     mockupType: 'smartphone',
     mockupScreenshot: undefined,
+    noMockup: false,
+    backgroundOnly: false,
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -56,8 +58,9 @@ const App: React.FC = () => {
   const [activeSticker, setActiveSticker] = useState(STICKER_OPTIONS[0]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setConfig(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    setConfig(prev => ({ ...prev, [name]: val }));
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -231,7 +234,6 @@ const App: React.FC = () => {
         const h = (layer.height || layer.fontSize) * scaleFactor;
         const logoImg = new Image();
         logoImg.src = layer.imageData;
-        // Since this is async, but we want immediate draw for responsiveness:
         if (logoImg.complete) {
             ctx.drawImage(logoImg, layer.x - w / 2, layer.y - h / 2, w, h);
         } else {
@@ -613,19 +615,53 @@ const App: React.FC = () => {
             <div className="flex-1 space-y-8">
               <div>
                 <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Sparkles /> VISUAL AESTHETIC</h2>
-                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}</select>
+                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none mb-4">{MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}</select>
+                
+                {/* Toggles Group */}
+                <div className="space-y-3">
+                  {/* No Mockup Toggle */}
+                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      id="noMockup" 
+                      name="noMockup" 
+                      checked={config.noMockup} 
+                      onChange={handleInputChange} 
+                      className="w-5 h-5 accent-blue-600 cursor-pointer"
+                    />
+                    <label htmlFor="noMockup" className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer flex-1">Typography Only (No Mockup)</label>
+                  </div>
+
+                  {/* Background Only Toggle */}
+                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      id="backgroundOnly" 
+                      name="backgroundOnly" 
+                      checked={config.backgroundOnly} 
+                      onChange={handleInputChange} 
+                      className="w-5 h-5 accent-blue-600 cursor-pointer"
+                    />
+                    <label htmlFor="backgroundOnly" className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer flex-1">Background Asset Only</label>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Layout /> DEVICE TYPE</h2>
-                <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
-              </div>
-              <div>
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Image /> SCREEN CONTENT</h2>
-                <label className={`flex flex-col items-center justify-center h-32 border rounded-xl cursor-pointer transition-all relative overflow-hidden ${config.mockupScreenshot ? 'border-blue-500/30' : 'bg-[#111] border-white/5'}`}>
-                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                  {config.mockupScreenshot ? <img src={config.mockupScreenshot} className="w-full h-full object-cover opacity-50" /> : <Icons.Image />}
-                </label>
-              </div>
+
+              {!config.noMockup && !config.backgroundOnly && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div>
+                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Layout /> DEVICE TYPE</h2>
+                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
+                  </div>
+                  <div>
+                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Image /> SCREEN CONTENT</h2>
+                    <label className={`flex flex-col items-center justify-center h-32 border rounded-xl cursor-pointer transition-all relative overflow-hidden ${config.mockupScreenshot ? 'border-blue-500/30' : 'bg-[#111] border-white/5'}`}>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                      {config.mockupScreenshot ? <img src={config.mockupScreenshot} className="w-full h-full object-cover opacity-50" /> : <Icons.Image />}
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
             <button onClick={() => handleGenerate(false)} disabled={isLoading} className="w-full bg-white text-black font-black py-6 rounded-2xl uppercase tracking-[0.4em] text-[12px] hover:bg-slate-200 transition-colors">{isLoading ? 'Processing...' : 'Render Batch'}</button>
           </div>
