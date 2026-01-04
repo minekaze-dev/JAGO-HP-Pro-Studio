@@ -650,7 +650,7 @@ const App: React.FC = () => {
               {!config.noMockup && !config.backgroundOnly && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <div>
-                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Layout /> DEVICE TYPE</h2>
+                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Layout /> MOCKUP TYPE</h2>
                     <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
                   </div>
                   <div>
