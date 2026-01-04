@@ -24,9 +24,66 @@ const DEVICE_DESC_MAP = {
   videotron: "a massive high-definition outdoor videotron / digital billboard integrated into a cinematic city environment",
 };
 
+export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remove-text' | 'add-text-manual' | 'polish-design', extraPrompt?: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  let prompt = "";
+  if (task === 'remove-bg') {
+    prompt = "Isolate the main subject by removing the entire background. Place the subject on a clean, sophisticated, neutral studio backdrop. Enhance lighting and shadows on the subject for a professional product photography look.";
+  } else if (task === 'remove-text') {
+    prompt = `STRICT MASK-BASED REMOVAL (PRECISION MODE): 
+       The image provided has BLUE BRUSH STROKES marking specific areas for removal.
+       1. TARGET: Identify all pixels covered by the BLUE color. 
+       2. ACTION: Remove ONLY the content directly underneath those blue markings.
+       3. INPAINTING: Fill the erased zones by seamlessly sampling from the immediate surrounding background.
+       4. FORBIDDEN: Do NOT alter, blur, or remove any text, logos, or objects that are NOT covered by the blue brush.
+       5. INTEGRITY: The final image must look original, as if the marked elements never existed, while preserving every other detail of the poster perfectly.`;
+  } else if (task === 'add-text-manual') {
+    prompt = `STRICT INSTRUCTION: Your goal is to add text to this image exactly as described by the user. 
+       User Instruction: "${extraPrompt}"
+       1. INTEGRATION: The text must look like a natural, high-end part of the graphic design. 
+       2. TYPOGRAPHY: Use high-quality professional fonts that complement the existing poster's style and mood.
+       3. CLARITY: Ensure the added text is sharp, perfectly spelled, and highly readable.
+       4. AESTHETICS: Balance the composition so the new text doesn't clutter the main subject.`;
+  } else if (task === 'polish-design') {
+    prompt = `PROFESSIONAL DESIGN REFURBISHMENT: 
+       1. COMPOSITION REPAIR: Analyze the entire image for unnatural gaps or empty spaces. 
+       2. SEAMLESS HARMONY: Smooth out textures and adjust the background elements (lighting, shapes, gradients) to ensure a perfectly flowing, professional composition.
+       3. VISUAL FLOW: Reconnect separated design elements so the poster looks like an original, high-end studio-designed asset.
+       4. ENHANCE: Subtly polish colors and contrast for a commercial-grade final output. 
+       DO NOT ADD NEW TEXT. FOCUS ON COMPOSITION INTEGRITY.`;
+  }
+
+  const parts = [
+    { text: prompt },
+    { inlineData: { mimeType: 'image/png', data: imageData.split(',')[1] } }
+  ];
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+    });
+
+    let imageUrl = '';
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+    }
+
+    if (!imageUrl) throw new Error("Editing failed. No image returned.");
+    return imageUrl;
+  } catch (err: any) {
+    console.error("Gemini Edit Error:", err);
+    throw new Error("Failed to process image. " + (err.message || "Unknown error"));
+  }
+};
+
 const fetchSingleVariation = async (config: PosterConfig, variationIndex: number, isRevision: boolean = false): Promise<GeneratedResult> => {
-  // Inisialisasi sesuai panduan teknis: Menggunakan process.env.API_KEY secara langsung
-  // Pastikan API_KEY sudah diset di Vercel Environment Variables
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const layoutInstruction = `ADHERENCE TO GRID: Place the branding elements precisely in the ${config.logoPosition.replace('-', ' ')} sector. Use variation #${variationIndex + 1} of cinematic framing.`;
@@ -106,7 +163,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
     return { imageUrl, promptUsed: prompt };
   } catch (err: any) {
     console.error("Gemini Image Generation Error:", err);
-    throw new Error(err.message || "Failed to generate image. Please check your API key and quota.");
+    throw new Error(err.message || "Failed to generate image.");
   }
 };
 
