@@ -51,7 +51,7 @@ export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remo
        2. SEAMLESS HARMONY: Smooth out textures and adjust the background elements (lighting, shapes, gradients) to ensure a perfectly flowing, professional composition.
        3. VISUAL FLOW: Reconnect separated design elements so the poster looks like an original, high-end studio-designed asset.
        4. ENHANCE: Subtly polish colors and contrast for a commercial-grade final output. 
-       DO NOT ADD NEW TEXT. FOCUS ON COMPOSITION INTEGRITY.`;
+       5. RESTRICTION: DO NOT ADD NEW TEXT. DO NOT ADD ANY LOGOS OR ICONS. FOCUS ON COMPOSITION INTEGRITY.`;
   }
 
   const parts = [
@@ -86,14 +86,27 @@ export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remo
 const fetchSingleVariation = async (config: PosterConfig, variationIndex: number, isRevision: boolean = false): Promise<GeneratedResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const layoutInstruction = `ADHERENCE TO GRID: Place the branding elements precisely in the ${config.logoPosition.replace('-', ' ')} sector. Use variation #${variationIndex + 1} of cinematic framing.`;
+  const hasBranding = config.logoIconBase64 || config.logoTextBase64;
+  const layoutInstruction = `ADHERENCE TO GRID: ${hasBranding ? `Place the provided branding assets precisely in the ${config.logoPosition.replace('-', ' ')} sector.` : "STRICTLY DO NOT add any logos, icons, symbols, or branding marks to the image. Keep the layout completely free of logos."} Use variation #${variationIndex + 1} of cinematic framing.`;
   
+  const titlePart = config.title.trim() 
+    ? `- Main Title: "${config.title}" using ${TITLE_SIZE_MAP[config.titleSize]}. MATCH EXACTLY.` 
+    : "- Main Title: DO NOT ADD ANY MAIN TITLE OR HEADLINE TEXT.";
+  
+  const taglinePart = config.tagline.trim()
+    ? `- Tagline: Must be exactly "${config.tagline}".`
+    : "- Tagline: DO NOT ADD ANY TAGLINE TEXT.";
+    
+  const marketingPart = config.marketing.trim()
+    ? `- Marketing Handle: Must be exactly "${config.marketing}".`
+    : "- Marketing Handle: DO NOT ADD ANY SOCIAL MEDIA OR MARKETING TEXT.";
+
   const typographyInstruction = `TYPOGRAPHY ACCURACY & STYLE: 
-  - Main Title: "${config.title}" using ${TITLE_SIZE_MAP[config.titleSize]}.
-  - CRITICAL: NO TYPOS. The text in the poster must match EXACTLY character-for-character with: "${config.title}".
+  ${titlePart}
+  ${taglinePart}
+  ${marketingPart}
+  - CRITICAL: IF A TEXT FIELD IS EMPTY, DO NOT ADD TEXT FOR IT.
   - STYLE: Use a clean, professional, high-end modern SANS-SERIF font (similar to Inter or Helvetica).
-  - TAGLINE: Must be exactly "${config.tagline}".
-  - MARKETING: Must be exactly "${config.marketing || ''}".
   ${isRevision ? "- EMERGENCY CHECK: Previous version had spelling errors. Double-verify every single letter in all text fields before finalizing the image." : ""}`;
 
   const brandingLogic = `BRANDING ASSET INTEGRATION:
@@ -103,7 +116,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
       ? "- ONLY ICON PROVIDED: Use ONLY the provided graphic icon. DO NOT add any arbitrary or phantom text next to it."
       : config.logoTextBase64
         ? "- ONLY TEXT PROVIDED: Use ONLY the provided typographic logo asset. Do not add any extra icons."
-        : "- NO ASSETS PROVIDED: Create a subtle, generic premium placeholder mark."}`;
+        : "- NO ASSETS PROVIDED: ABSOLUTELY DO NOT ADD ANY LOGO, SYMBOL, ICON, OR PLACEHOLDER BRANDING. Leave the entire image clean of branding elements."}`;
 
   const mockupLogic = config.mockupScreenshot
     ? `MOCKUP INTEGRATION: You are provided with a reference screenshot. Map this image EXACTLY onto the ${config.mockupType} screen. Ensure the screen content is perfectly integrated, sharp, and realistic within the hardware environment.`
@@ -118,8 +131,8 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
   ${mockupLogic}
   
   STRICT RULES:
-  1. ABSOLUTELY NO TYPOS: Verify every character in the generated image. "${config.title}", "${config.tagline}", and "${config.marketing}" must be spelled perfectly. 
-  2. NO SELF-BRANDING: Do NOT include "JAGO-HP", "JAGOHP", or any other watermarks/text not explicitly provided in the Art Direction.
+  1. ABSOLUTELY NO TYPOS: Verify every character in the generated image. 
+  2. NO SELF-BRANDING: Do NOT include "JAGO-HP", "JAGOHP", or any other watermarks/text/logos not explicitly provided by the user. If branding assets are missing, leave the logo space empty.
   3. COMPOSITION: ${layoutInstruction}
   4. FONTS: ${typographyInstruction}
   

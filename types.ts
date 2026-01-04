@@ -5,6 +5,28 @@ export type PositionType = 'top-left' | 'top-center' | 'top-right' | 'bottom-cen
 export type TitleSizeType = 'h1' | 'h2' | 'h3';
 export type MockupDeviceType = 'smartphone' | 'laptop' | 'pc' | 'videotron';
 
+export type CustomToolMode = 'remove-bg' | 'ai-eraser' | 'add-text' | 'add-sticker' | 'add-shape' | 'add-logo';
+
+export interface CustomLayer {
+  id: string;
+  type: 'text' | 'sticker' | 'shape' | 'logo';
+  content: string; // For text: content. For shape: 'rect'/'circle'. For sticker: emoji. For logo: 'custom'.
+  imageData?: string; // Base64 for custom logo
+  x: number;
+  y: number;
+  fontSize: number; // For text size, sticker size, or baseline scale
+  fontFamily?: string;
+  color: string;
+  opacity: number;
+  // Text specific properties
+  bgActive?: boolean;
+  bgColor?: string;
+  bgOpacity?: number;
+  // Shape/Logo specific properties
+  width?: number;
+  height?: number;
+}
+
 export interface PosterConfig {
   title: string;
   tagline: string;
@@ -13,7 +35,7 @@ export interface PosterConfig {
   ratio: AspectRatioType;
   logoIconBase64?: string;
   logoTextBase64?: string;
-  mockupScreenshot?: string; // Single screenshot
+  mockupScreenshot?: string;
   mockupType: MockupDeviceType;
   logoPosition: PositionType;
   titleSize: TitleSizeType;
