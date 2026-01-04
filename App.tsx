@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   MOOD_OPTIONS, 
@@ -51,11 +50,9 @@ const App: React.FC = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   
   // Property States for new objects
-  const [brushSize, setBrushSize] = useState(30);
   const [activeFont, setActiveFont] = useState('Orbitron');
   const [activeColor, setActiveColor] = useState('#ffffff');
-  const [activeSize, setActiveSize] = useState(80);
-  const [activeSticker, setActiveSticker] = useState(STICKER_OPTIONS[0]);
+  const [activeSize, setActiveSize] = useState(150);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -98,7 +95,7 @@ const App: React.FC = () => {
             type: 'logo',
             content: 'custom',
             imageData: base64,
-            x: 500, // Center initial position
+            x: 500,
             y: 500,
             fontSize: 200,
             width: 200,
@@ -120,6 +117,11 @@ const App: React.FC = () => {
     try {
       const results = await generatePosterBatch(config, isRevision);
       setBatch({ results, timestamp: Date.now() });
+      if (window.innerWidth < 1024) {
+        setTimeout(() => {
+          document.getElementById('render-output-stage')?.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred during batch generation.");
     } finally {
@@ -129,7 +131,6 @@ const App: React.FC = () => {
 
   const startCustomAction = async () => {
     if (!customImage) return;
-    
     if (toolMode === 'add-text' || toolMode === 'add-sticker' || toolMode === 'add-shape' || toolMode === 'add-logo') {
       if (canvasRef.current) {
         setSelectedLayerId(null);
@@ -141,14 +142,12 @@ const App: React.FC = () => {
       }
       return;
     }
-
     setIsProcessing(true);
     try {
       let imageDataToSend = customImage;
       if (toolMode === 'ai-eraser' && canvasRef.current) {
         imageDataToSend = canvasRef.current.toDataURL('image/png');
       }
-      
       const task = toolMode === 'ai-eraser' ? 'remove-text' : 'remove-bg';
       const res = await editImageTask(imageDataToSend, task as any);
       setCustomResult(res);
@@ -187,26 +186,6 @@ const App: React.FC = () => {
         ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        const metrics = ctx.measureText(layer.content);
-        const textWidth = metrics.width;
-        const textHeight = layer.fontSize * scaleFactor;
-
-        if (layer.bgActive) {
-          ctx.save();
-          ctx.globalAlpha = (layer.bgOpacity || 80) / 100;
-          ctx.fillStyle = layer.bgColor || '#000000';
-          const paddingX = 20 * scaleFactor;
-          const paddingY = 10 * scaleFactor;
-          ctx.fillRect(
-            layer.x - textWidth / 2 - paddingX, 
-            layer.y - textHeight / 2 - paddingY, 
-            textWidth + paddingX * 2, 
-            textHeight + paddingY * 2
-          );
-          ctx.restore();
-        }
-
         ctx.fillStyle = layer.color;
         ctx.fillText(layer.content, layer.x, layer.y);
       } 
@@ -223,9 +202,16 @@ const App: React.FC = () => {
         
         if (layer.content === 'rect') {
           ctx.fillRect(layer.x - w / 2, layer.y - h / 2, w, h);
-        } else {
+        } else if (layer.content === 'circle') {
           ctx.beginPath();
           ctx.ellipse(layer.x, layer.y, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (layer.content === 'triangle') {
+          ctx.beginPath();
+          ctx.moveTo(layer.x, layer.y - h / 2);
+          ctx.lineTo(layer.x + w / 2, layer.y + h / 2);
+          ctx.lineTo(layer.x - w / 2, layer.y + h / 2);
+          ctx.closePath();
           ctx.fill();
         }
       }
@@ -248,37 +234,31 @@ const App: React.FC = () => {
       ctx.restore();
 
       if (layer.id === selectedLayerId && !customResult) {
-        let sizeW = 0;
-        let sizeH = 0;
-
+        let sizeW = 0, sizeH = 0;
         if (layer.type === 'text') {
+          const ctx = canvasRef.current.getContext('2d')!;
           ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-          const metrics = ctx.measureText(layer.content);
-          sizeW = metrics.width / 2 + 15 * scaleFactor;
+          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
           sizeH = layer.fontSize * scaleFactor * 0.6;
         } else if (layer.type === 'sticker') {
           sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
           sizeH = sizeW;
-        } else if (layer.type === 'shape' || layer.type === 'logo') {
+        } else {
           sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
           sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
         }
-
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 4 * scaleFactor;
         ctx.setLineDash([10, 5]);
         ctx.strokeRect(layer.x - sizeW, layer.y - sizeH, sizeW * 2, sizeH * 2);
         ctx.setLineDash([]);
-        
         const handleRadius = 25 * scaleFactor;
         ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(layer.x + sizeW, layer.y - sizeH, handleRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        const barWidth = handleRadius * 1.2;
-        const barHeight = 4 * scaleFactor;
-        ctx.fillRect(layer.x + sizeW - barWidth/2, layer.y - sizeH - barHeight/2, barWidth, barHeight);
+        ctx.beginPath(); ctx.arc(layer.x + sizeW, layer.y - sizeH, handleRadius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${15 * scaleFactor}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('X', layer.x + sizeW, layer.y - sizeH);
       }
     }
   };
@@ -289,11 +269,9 @@ const App: React.FC = () => {
 
   const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
     let clientX, clientY;
     if ('touches' in e) {
       clientX = (e as React.TouchEvent).touches[0].clientX;
@@ -302,43 +280,31 @@ const App: React.FC = () => {
       clientX = (e as React.MouseEvent).clientX;
       clientY = (e as React.MouseEvent).clientY;
     }
-    
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
-    };
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef.current || !customImage || customResult) return;
     const { x, y } = getCanvasCoords(e);
-    const canvas = canvasRef.current;
-    const scaleFactor = canvas.width / 1000;
+    const scaleFactor = canvasRef.current.width / 1000;
 
     if (selectedLayerId) {
       const layer = layers.find(l => l.id === selectedLayerId);
       if (layer) {
-        let sizeW = 0;
-        let sizeH = 0;
+        let sizeW = 0, sizeH = 0;
         if (layer.type === 'text') {
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-            sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
-            sizeH = layer.fontSize * scaleFactor * 0.6;
-          }
+          const ctx = canvasRef.current.getContext('2d')!;
+          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
+          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
+          sizeH = layer.fontSize * scaleFactor * 0.6;
         } else if (layer.type === 'sticker') {
           sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
           sizeH = sizeW;
-        } else if (layer.type === 'shape' || layer.type === 'logo') {
+        } else {
           sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
           sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
         }
-
-        const handleX = layer.x + sizeW;
-        const handleY = layer.y - sizeH;
-        const dist = Math.sqrt((x - handleX) ** 2 + (y - handleY) ** 2);
-        if (dist < 40 * scaleFactor) {
+        if (Math.sqrt((x - (layer.x + sizeW)) ** 2 + (y - (layer.y - sizeH)) ** 2) < 40 * scaleFactor) {
           setLayers(layers.filter(l => l.id !== selectedLayerId));
           setSelectedLayerId(null);
           return;
@@ -347,19 +313,16 @@ const App: React.FC = () => {
     }
 
     const clickedLayer = [...layers].reverse().find(layer => {
-      let sizeW = 0;
-      let sizeH = 0;
+      let sizeW = 0, sizeH = 0;
       if (layer.type === 'text') {
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-            sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
-            sizeH = layer.fontSize * scaleFactor * 0.6;
-          }
+          const ctx = canvasRef.current!.getContext('2d')!;
+          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
+          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
+          sizeH = layer.fontSize * scaleFactor * 0.6;
       } else if (layer.type === 'sticker') {
         sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
         sizeH = sizeW;
-      } else if (layer.type === 'shape' || layer.type === 'logo') {
+      } else {
         sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
         sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
       }
@@ -374,48 +337,15 @@ const App: React.FC = () => {
     }
 
     if (toolMode === 'add-text') {
-      const newLayer: CustomLayer = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'text',
-        content: "NEW TEXT",
-        x,
-        y,
-        fontSize: activeSize,
-        fontFamily: activeFont,
-        color: activeColor,
-        opacity: 100,
-        bgActive: false,
-        bgColor: '#000000',
-        bgOpacity: 80
-      };
+      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'text', content: "TEXT", x, y, fontSize: activeSize, fontFamily: activeFont, color: activeColor, opacity: 100 };
       setLayers([...layers, newLayer]);
       setSelectedLayerId(newLayer.id);
     } else if (toolMode === 'add-sticker') {
-      const newLayer: CustomLayer = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'sticker',
-        content: activeSticker.emoji,
-        x,
-        y,
-        fontSize: 100,
-        color: '#000',
-        opacity: 100
-      };
+      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'sticker', content: STICKER_OPTIONS[1].emoji, x, y, fontSize: activeSize, color: '#000', opacity: 100 };
       setLayers([...layers, newLayer]);
       setSelectedLayerId(newLayer.id);
     } else if (toolMode === 'add-shape') {
-      const newLayer: CustomLayer = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'shape',
-        content: 'rect',
-        x,
-        y,
-        fontSize: 150,
-        width: 150,
-        height: 150,
-        color: activeColor,
-        opacity: 100
-      };
+      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'shape', content: 'rect', x, y, fontSize: activeSize, width: activeSize, height: activeSize, color: activeColor, opacity: 100 };
       setLayers([...layers, newLayer]);
       setSelectedLayerId(newLayer.id);
     } else if (toolMode === 'add-logo') {
@@ -428,17 +358,10 @@ const App: React.FC = () => {
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDraggingLayer || !selectedLayerId || customResult) return;
     const { x, y } = getCanvasCoords(e);
-    
-    setLayers(layers.map(l => 
-      l.id === selectedLayerId 
-        ? { ...l, x: x - dragOffset.current.x, y: y - dragOffset.current.y } 
-        : l
-    ));
+    setLayers(layers.map(l => l.id === selectedLayerId ? { ...l, x: x - dragOffset.current.x, y: y - dragOffset.current.y } : l));
   };
 
-  const handleMouseUp = () => {
-    setIsDraggingLayer(false);
-  };
+  const handleMouseUp = () => setIsDraggingLayer(false);
 
   const handleUpdateLayer = (updates: Partial<CustomLayer>) => {
     if (!selectedLayerId) return;
@@ -448,161 +371,134 @@ const App: React.FC = () => {
   const downloadImage = (url: string, name?: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${name || 'jagohp-design'}-${Date.now()}.png`;
+    link.download = `${name || 'jagohp'}-${Date.now()}.png`;
     link.click();
   };
 
   const selectedLayer = layers.find(l => l.id === selectedLayerId);
 
-  // Color Section Helper Component
   const ColorControl = ({ label, currentColor, onColorChange }: { label: string, currentColor: string, onColorChange: (color: string) => void }) => (
     <div className="space-y-2">
       <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">{label}</label>
       <div className="flex items-center gap-3">
-        <div className="relative group">
-          <input 
-            type="color" 
-            value={currentColor} 
-            onChange={(e) => onColorChange(e.target.value)}
-            className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-none appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-white/10"
-          />
-        </div>
-        <div className="flex-1 flex items-center bg-[#111] border border-white/10 rounded-lg px-3 py-2.5">
-          <span className="text-slate-500 font-bold mr-1 text-[10px]">HEX</span>
-          <input 
-            type="text" 
-            value={currentColor.toUpperCase()} 
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val.startsWith('#') && val.length <= 7) onColorChange(val);
-              else if (!val.startsWith('#') && val.length <= 6) onColorChange('#' + val);
-            }}
-            className="bg-transparent text-white font-black text-[10px] outline-none w-full tracking-widest"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-5 gap-1.5 mt-2">
-        {['#ffffff', '#000000', '#3b82f6', '#ef4444', '#eab308', '#22c55e', '#a855f7', '#ff00ff', '#00ffff', '#333333'].map(c => (
-          <button 
-            key={c} 
-            onClick={() => onColorChange(c)} 
-            className={`w-full aspect-square rounded-md border border-white/5 transition-transform ${currentColor.toLowerCase() === c ? 'scale-110 ring-1 ring-blue-500' : 'hover:scale-105 opacity-80'}`} 
-            style={{backgroundColor: c}} 
-          />
-        ))}
+        <input type="color" value={currentColor} onChange={(e) => onColorChange(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent appearance-none" />
+        <input type="text" value={currentColor.toUpperCase()} onChange={(e) => onColorChange(e.target.value)} className="flex-1 bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none uppercase font-black" />
       </div>
     </div>
   );
 
   return (
     <div className="flex flex-col h-screen bg-[#020202] text-slate-200 overflow-hidden font-inter">
-      <header className="flex-none py-4 px-8 border-b border-white/5 flex items-center justify-between bg-black/80 z-50 backdrop-blur-3xl">
+      <header className="flex-none py-4 px-6 sm:px-8 border-b border-white/5 flex items-center justify-between bg-black/80 z-50 backdrop-blur-3xl">
         <div className="flex items-center gap-4">
-          <img src="https://imgur.com/CSG8wWS.jpg" alt="JAGO-HP Logo" className="w-14 h-14 object-cover rounded-lg shadow-lg border border-white/10" />
+          <img src="https://imgur.com/CSG8wWS.jpg" alt="Logo" className="w-10 h-10 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
           <div className="flex flex-col">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-black tracking-widest text-white uppercase italic font-orbitron">JAGO-HP</span>
-              <span className="h-5 w-[1px] bg-slate-800 hidden sm:block"></span>
-              <span className="text-[10px] font-bold text-blue-500 hidden sm:block tracking-[0.3em]">CONTENT STUDIO</span>
-            </div>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] mt-0.5 leading-none">High-Fidelity Product Visualization</p>
+            <span className="text-lg sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGO-HP</span>
+            <span className="text-[8px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-1">CONTENT STUDIO</span>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => setView(view === 'generator' ? 'custom' : 'generator')}
-            className={`group relative flex items-center gap-2 px-5 py-2.5 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${view === 'custom' ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)]' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
-          >
-            <Icons.Tool /> {view === 'custom' ? 'Back to Studio' : 'Custom Tools'}
-            {view === 'generator' && (
-              <span className="absolute -top-2 -right-2 bg-blue-500 text-white px-2 py-0.5 rounded-full text-[7px] font-black scale-90 group-hover:scale-100 transition-transform">Beta</span>
-            )}
-          </button>
-        </div>
+        <button 
+          onClick={() => setView(view === 'generator' ? 'custom' : 'generator')} 
+          className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl border transition-all text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap flex-nowrap ${view === 'custom' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+        >
+          <Icons.Tool /> <span>{view === 'custom' ? 'EXIT' : 'EDITOR TOOLS'}</span>
+        </button>
       </header>
 
       {view === 'generator' ? (
-        <main className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-          <div className="lg:col-span-3 border-r border-white/5 bg-[#080808] overflow-y-auto p-6 lg:p-8 custom-scrollbar space-y-8">
-            <div>
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2"><Icons.Layout /> ART DIRECTION</h2>
-              <div className="space-y-4">
-                <div className="group">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-wider">Headline (Optional)</label>
-                  <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="e.g. Vanguard X" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500/50 transition-all font-bold text-white text-base placeholder:text-slate-900 uppercase" />
-                </div>
-                <div className="group">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-wider">Tagline</label>
-                  <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="e.g. The Future is Now." className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 transition-all text-xs text-slate-300" />
-                </div>
-                <div className="group">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-wider">Social Media</label>
-                  <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={2} placeholder="e.g. Follow us on Instagram @jagohp" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 transition-all text-xs text-slate-400 resize-none font-medium" />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-widest">Logo Pos</label>
-                <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold outline-none uppercase">{POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-widest">Size</label>
-                <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold outline-none uppercase">{TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
-              </div>
-            </div>
+        <main className="flex-1 overflow-y-auto lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12 custom-scrollbar">
+          {/* ART DIRECTION SIDEBAR */}
+          <div className="lg:col-span-3 order-1 lg:order-1 border-b lg:border-b-0 lg:border-r border-white/5 bg-[#080808] p-6 lg:p-8 space-y-8">
+            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Layout /> ART DIRECTION</h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-widest">Branding Assets</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer transition-all text-[8px] font-black tracking-[0.1em] text-center px-2 ${config.logoIconBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5 text-slate-700 hover:border-white/10'}`}>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
-                    {config.logoIconBase64 ? 'ICON OK' : 'UPLOAD ICON'}
-                  </label>
-                  <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer transition-all text-[8px] font-black tracking-[0.1em] text-center px-2 ${config.logoTextBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5 text-slate-700 hover:border-white/10'}`}>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
-                    {config.logoTextBase64 ? 'TEXT OK' : 'UPLOAD TEXT'}
-                  </label>
+              <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="HEADLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3.5 font-bold text-white uppercase" />
+              <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="TAGLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-300" />
+              <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={2} placeholder="SOCIALS" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none" />
+              
+              <div className="pt-4 border-t border-white/5 space-y-4">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Branding Assets</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer text-[8px] font-black ${config.logoIconBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5'}`}>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
+                      {config.logoIconBase64 ? 'ICON OK' : 'ICON'}
+                    </label>
+                    <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer text-[8px] font-black ${config.logoTextBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5'}`}>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
+                      {config.logoTextBase64 ? 'TEXT OK' : 'TEXT'}
+                    </label>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-widest">Canvas Ratio</label>
-                <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold outline-none uppercase">{RATIO_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
+                
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Logo Position</label>
+                    <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold uppercase">{POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Title Style</label>
+                    <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold uppercase">{TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Canvas Ratio</label>
+                  <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-3 py-3 text-[10px] font-bold uppercase">{RATIO_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-6 bg-[#030303] overflow-y-auto custom-scrollbar p-6 lg:p-10 relative">
-            {!batch && !isLoading && (
-              <div className="h-full flex flex-col items-center justify-center space-y-8 opacity-40">
-                <Icons.Image />
-                <div className="text-center space-y-3">
-                   <h3 className="text-[14px] font-black uppercase tracking-[0.6em] text-slate-500">Stage Idle</h3>
-                   <p className="text-[10px] text-slate-700 max-w-[320px] mx-auto leading-relaxed font-bold uppercase tracking-widest text-center">Configure your product and select a mood to start rendering.</p>
+          {/* VISUAL AESTHETIC & GENERATION BUTTON */}
+          <div className="lg:col-span-3 order-2 lg:order-3 border-b lg:border-b-0 lg:border-l border-white/5 bg-[#080808] p-6 lg:p-8 space-y-8 flex flex-col justify-between">
+            <div className="space-y-6">
+              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Sparkles /> AESTHETIC</h2>
+              
+              <div>
+                <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Visual Mood</label>
+                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}</select>
+              </div>
+
+              <div className="space-y-3">
+                <div onClick={() => setConfig({...config, noMockup: !config.noMockup})} className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
+                  <input type="checkbox" checked={config.noMockup} readOnly className="w-4 h-4 accent-blue-600" />
+                  <span className="text-[9px] font-black uppercase text-slate-300">Text Only</span>
+                </div>
+                <div onClick={() => setConfig({...config, backgroundOnly: !config.backgroundOnly})} className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
+                  <input type="checkbox" checked={config.backgroundOnly} readOnly className="w-4 h-4 accent-blue-600" />
+                  <span className="text-[9px] font-black uppercase text-slate-300">Background Plate</span>
                 </div>
               </div>
-            )}
-            {isLoading && (
-              <div className="h-full flex flex-col items-center justify-center gap-12">
-                 <Icons.Loader />
-                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.6em] animate-pulse">Rendering Assets...</p>
-              </div>
-            )}
+              {!config.noMockup && !config.backgroundOnly && (
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Mockup Device</label>
+                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
+                  </div>
+                  <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-xl cursor-pointer ${config.mockupScreenshot ? 'border-blue-500/30' : 'bg-[#111] border-white/5'}`}>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                    {config.mockupScreenshot ? <img src={config.mockupScreenshot} className="w-full h-full object-cover opacity-50" /> : <Icons.Image />}
+                  </label>
+                </div>
+              )}
+            </div>
+            <button onClick={() => handleGenerate(false)} disabled={isLoading} className="w-full bg-white text-black font-black py-6 rounded-2xl uppercase tracking-[0.4em] text-[12px] mt-6 shadow-2xl hover:bg-slate-200 transition-all">{isLoading ? 'RENDERING...' : 'Create Content'}</button>
+          </div>
+
+          {/* OUTPUT RESULTS AREA */}
+          <div id="render-output-stage" className="lg:col-span-6 order-3 lg:order-2 bg-[#030303] overflow-y-auto custom-scrollbar p-6 lg:p-10 relative min-h-[500px]">
+            {!batch && !isLoading && <div className="h-full flex flex-col items-center justify-center opacity-10 gap-4"><Icons.Image /><p className="text-[12px] font-black uppercase tracking-[0.5em]">Awaiting Output</p></div>}
+            {isLoading && <div className="h-full flex flex-col items-center justify-center gap-10"><Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] animate-pulse">Running Neural Engine...</p></div>}
             {batch && !isLoading && (
-              <div className="space-y-8 animate-in fade-in zoom-in-95 duration-700 pb-20">
-                <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-6">
-                   <h2 className="text-lg font-black tracking-widest text-white uppercase">Render Result</h2>
-                   <button onClick={() => setBatch(null)} className="text-[10px] font-black text-slate-700 hover:text-white uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full">Clear Stage</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              <div className="space-y-8 pb-20 animate-in fade-in duration-700">
+                <h2 className="text-lg font-black tracking-widest text-white uppercase italic border-b border-white/5 pb-4">RENDER RESULT</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {batch.results.map((result, idx) => (
-                    <div key={idx} className="group relative">
-                      <div onClick={() => setEnlargedImage(result.imageUrl)} className="relative bg-black rounded-xl overflow-hidden border border-white/5 cursor-zoom-in">
-                        <img src={result.imageUrl} className="w-full h-auto block" />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-4">
-                           <button onClick={(e) => { e.stopPropagation(); downloadImage(result.imageUrl, `variant-${idx+1}`); }} className="w-full bg-white text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"><Icons.Download /> Download</button>
-                           <button onClick={(e) => { e.stopPropagation(); handleStartCustomEdit(result.imageUrl); }} className="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">Edit in Custom Tools</button>
-                        </div>
+                    <div key={idx} className="group relative rounded-xl overflow-hidden border border-white/5 bg-black cursor-zoom-in" onClick={() => setEnlargedImage(result.imageUrl)}>
+                      <img src={result.imageUrl} className="w-full h-auto" alt={`Variant ${idx}`} />
+                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 gap-3">
+                         <button onClick={(e) => { e.stopPropagation(); downloadImage(result.imageUrl, `poster-${idx+1}`); }} className="w-full bg-white text-black py-2 rounded-lg font-black text-[10px] uppercase">Save</button>
+                         <button onClick={(e) => { e.stopPropagation(); handleStartCustomEdit(result.imageUrl); }} className="w-full bg-blue-600 text-white py-2 rounded-lg font-black text-[10px] uppercase">Editor Tools</button>
                       </div>
                     </div>
                   ))}
@@ -610,378 +506,164 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-
-          <div className="lg:col-span-3 border-l border-white/5 bg-[#080808] p-6 lg:p-8 space-y-8 flex flex-col">
-            <div className="flex-1 space-y-8">
-              <div>
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Sparkles /> VISUAL AESTHETIC</h2>
-                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none mb-4">{MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}</select>
-                
-                {/* Toggles Group */}
-                <div className="space-y-3">
-                  {/* No Mockup Toggle */}
-                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      id="noMockup" 
-                      name="noMockup" 
-                      checked={config.noMockup} 
-                      onChange={handleInputChange} 
-                      className="w-5 h-5 accent-blue-600 cursor-pointer"
-                    />
-                    <label htmlFor="noMockup" className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer flex-1">Typography Only (No Mockup)</label>
-                  </div>
-
-                  {/* Background Only Toggle */}
-                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      id="backgroundOnly" 
-                      name="backgroundOnly" 
-                      checked={config.backgroundOnly} 
-                      onChange={handleInputChange} 
-                      className="w-5 h-5 accent-blue-600 cursor-pointer"
-                    />
-                    <label htmlFor="backgroundOnly" className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer flex-1">Background Asset Only</label>
-                  </div>
-                </div>
-              </div>
-
-              {!config.noMockup && !config.backgroundOnly && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                  <div>
-                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Layout /> MOCKUP TYPE</h2>
-                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
-                  </div>
-                  <div>
-                    <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Image /> SCREEN CONTENT</h2>
-                    <label className={`flex flex-col items-center justify-center h-32 border rounded-xl cursor-pointer transition-all relative overflow-hidden ${config.mockupScreenshot ? 'border-blue-500/30' : 'bg-[#111] border-white/5'}`}>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                      {config.mockupScreenshot ? <img src={config.mockupScreenshot} className="w-full h-full object-cover opacity-50" /> : <Icons.Image />}
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-            <button onClick={() => handleGenerate(false)} disabled={isLoading} className="w-full bg-white text-black font-black py-6 rounded-2xl uppercase tracking-[0.4em] text-[12px] hover:bg-slate-200 transition-colors">{isLoading ? 'Processing...' : 'Render Batch'}</button>
-          </div>
         </main>
       ) : (
-        /* CUSTOM TOOLS VIEW */
-        <main className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-          {/* LEFT SIDEBAR - MODES */}
-          <div className="lg:col-span-3 border-r border-white/5 bg-[#080808] p-6 lg:p-8 overflow-y-auto custom-scrollbar">
-            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2"><Icons.Tool /> SELECT TOOL</h2>
-            <div className="grid grid-cols-1 gap-3 mb-8">
-              {[
-                { id: 'remove-bg', icon: <Icons.Palette />, label: 'Background removal' },
-                { id: 'ai-eraser', icon: <Icons.Tool />, label: 'AI Object Eraser' },
-                { id: 'add-text', icon: <Icons.Type />, label: 'Add Typography' },
-                { id: 'add-sticker', icon: <Icons.Smile />, label: 'Stickers & Icons' },
-                { id: 'add-shape', icon: <Icons.Layout />, label: 'Dynamic Shapes' },
-                { id: 'add-logo', icon: <Icons.Image />, label: 'Upload Own Logo' }
-              ].map(item => (
-                <button 
-                  key={item.id}
-                  onClick={() => { setToolMode(item.id as CustomToolMode); setSelectedLayerId(null); }} 
-                  className={`p-4 rounded-xl border text-left transition-all ${toolMode === item.id ? 'bg-blue-600/10 border-blue-500/50 text-white shadow-[inset_0_0_15px_rgba(37,99,235,0.1)]' : 'bg-white/5 border-white/5 text-slate-500 hover:text-slate-300'}`}
-                >
-                  <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    {item.icon}
-                    {item.label}
-                  </p>
-                </button>
-              ))}
-            </div>
-            
-            <input 
-              type="file" 
-              ref={logoInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={(e) => handleFileChange(e, 'custom-layer-logo')} 
-            />
-
-            <div className="pt-8 mt-8 border-t border-white/5">
-              <label className="w-full block py-4 bg-slate-900 border border-white/10 rounded-xl text-center text-[10px] font-black uppercase tracking-widest text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors">
-                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'custom')} className="hidden" />
-                Upload New Base
-              </label>
-            </div>
-          </div>
-
-          {/* CENTER CANVAS AREA */}
-          <div className="lg:col-span-6 bg-[#030303] overflow-hidden flex flex-col items-center justify-center p-6 relative">
+        /* EDITOR TOOLS VIEW */
+        <main className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 custom-scrollbar bg-[#020202]">
+          
+          {/* 1. POSTER CANVAS AREA - ALWAYS TOP ON MOBILE */}
+          <div className="lg:col-span-6 order-1 lg:order-2 bg-[#030303] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative">
             {!customImage ? (
-              <div className="text-center opacity-30 flex flex-col items-center gap-4">
-                <Icons.Image />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Stage Empty</p>
+              <div className="py-20 text-center opacity-20">
+                <p className="text-[10px] font-black uppercase tracking-[0.5em]">Stage Empty</p>
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center relative">
-                <div className="relative border-2 border-dashed border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.9)] rounded-lg overflow-hidden max-h-full">
-                  {customResult ? (
-                    <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center relative">
-                      <img src={customResult} className="max-h-[70vh] block" />
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity gap-8 p-12">
-                        <div className="text-center space-y-3">
-                           <p className="text-[14px] font-black text-white uppercase tracking-[0.4em]">Design Finalized</p>
-                           <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Commit to flatten or Discard to retry</p>
-                        </div>
-                        <div className="flex flex-col gap-4 w-full max-w-[240px]">
-                           <button onClick={handleApplyAndContinue} className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-[11px] uppercase shadow-2xl shadow-blue-500/40 hover:bg-blue-500 transition-all border border-blue-400/30">Commit Design</button>
-                           <button onClick={() => downloadImage(customResult, 'custom-design')} className="w-full bg-white text-black py-4 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-200 transition-all">
-                              <Icons.Download /> Download
-                           </button>
-                           <button onClick={() => setCustomResult(null)} className="w-full bg-white/10 backdrop-blur text-white/70 py-4 rounded-xl font-black text-[11px] uppercase border border-white/10 hover:bg-white/20 transition-all">Discard Layer</button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                       <canvas 
-                         ref={canvasRef}
-                         onMouseDown={handleMouseDown}
-                         onMouseMove={handleMouseMove}
-                         onMouseUp={handleMouseUp}
-                         onTouchStart={handleMouseDown}
-                         onTouchMove={handleMouseMove}
-                         onTouchEnd={handleMouseUp}
-                         className={`max-h-[75vh] block object-contain transition-all ${toolMode === 'ai-eraser' ? 'cursor-crosshair' : 'cursor-cell'}`}
-                       />
-                       <div className="absolute top-4 left-4 flex gap-2 pointer-events-none">
-                         <div className="bg-blue-600/90 text-white px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest animate-pulse">
-                            {toolMode === 'add-text' ? 'CLICK TO ADD TEXT / DRAG TO MOVE' : toolMode === 'add-sticker' ? 'CLICK TO PLACE STICKER / DRAG TO MOVE' : toolMode === 'add-shape' ? 'CLICK TO ADD SHAPE' : toolMode === 'ai-eraser' ? 'CLICK TO ERASE' : toolMode === 'add-logo' ? 'UPLOAD LOGO TO PLACE' : 'EDITING MODE'}
-                         </div>
-                       </div>
-                    </div>
-                  )}
-                </div>
+              <div className="relative border border-white/10 shadow-2xl max-w-full">
+                {customResult ? (
+                   <img src={customResult} className="max-h-[75vh] w-auto block mx-auto" alt="Result" />
+                ) : (
+                   <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} className="max-h-[75vh] max-w-full block mx-auto object-contain cursor-crosshair" />
+                )}
                 {isProcessing && (
-                  <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md">
-                    <Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500 animate-pulse">Running Neural Rendering Engine...</p>
-                  </div>
+                   <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md">
+                     <Icons.Loader />
+                     <p className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500">Processing AI...</p>
+                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* RIGHT SIDEBAR - STYLE FEATURES */}
-          <div className="lg:col-span-3 border-l border-white/5 bg-[#080808] p-6 lg:p-8 overflow-y-auto custom-scrollbar flex flex-col">
-            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-8 flex items-center gap-2"><Icons.Palette /> STYLE & PROPERTIES</h2>
+          {/* 2. EDITOR FUNCTION SELECTION - BELOW CANVAS ON MOBILE */}
+          <div className="lg:col-span-3 order-2 lg:order-1 border-y lg:border-y-0 lg:border-r border-white/5 bg-[#080808] p-6 lg:p-8">
+            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Tool /> EDITOR TOOLS</h2>
             
-            <div className="flex-1 space-y-8">
-              {!selectedLayerId && !customResult && (toolMode === 'add-text' || toolMode === 'add-sticker' || toolMode === 'add-shape' || toolMode === 'add-logo') && (
-                <div className="p-6 border border-white/5 rounded-2xl bg-white/[0.02] text-center space-y-3 opacity-60">
-                   <Icons.Type />
-                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Select an element on the canvas to edit its style or drag to move.</p>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-600 uppercase mb-3 tracking-widest">Select Function</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'remove-bg', label: 'BG Remover' },
+                    { id: 'ai-eraser', label: 'Object Eraser' },
+                    { id: 'add-text', label: 'Add Text' },
+                    { id: 'add-sticker', label: 'Stickers' },
+                    { id: 'add-shape', label: 'Shapes' },
+                    { id: 'add-logo', label: 'Logo' }
+                  ].map(item => (
+                    <button key={item.id} onClick={() => { setToolMode(item.id as CustomToolMode); setSelectedLayerId(null); }} className={`p-4 rounded-xl border text-[10px] font-black uppercase text-left transition-all ${toolMode === item.id ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'}`}>
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {/* Text Style Controls */}
-              {selectedLayer && selectedLayer.type === 'text' && !customResult && (
+              <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'custom-layer-logo')} />
+              
+              <div className="pt-6 border-t border-white/5">
+                <label className="w-full block py-5 bg-[#111] border border-white/5 rounded-xl text-center text-[10px] font-black uppercase cursor-pointer hover:bg-white/10 transition-colors">
+                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'custom')} className="hidden" />
+                  Upload Image
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. PROPERTIES & ACTIONS - BOTTOM ON MOBILE */}
+          <div className="lg:col-span-3 order-3 border-t lg:border-t-0 lg:border-l border-white/5 bg-[#080808] p-6 lg:p-8 flex flex-col justify-between">
+            <div className="space-y-8 pb-10">
+              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Palette /> PROPERTIES</h2>
+              
+              {selectedLayer ? (
                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                  <div className="space-y-2">
-                    <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Canvas Input</label>
-                    <input 
-                      type="text" 
-                      value={selectedLayer.content} 
-                      onChange={(e) => handleUpdateLayer({ content: e.target.value })} 
-                      className="w-full bg-[#111] border border-blue-500/30 rounded-lg px-3 py-3 text-xs text-white uppercase outline-none focus:border-blue-500" 
-                      placeholder="Type text..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Font Family</label>
-                    <select 
-                      value={selectedLayer.fontFamily} 
-                      onChange={(e) => handleUpdateLayer({ fontFamily: e.target.value })} 
-                      className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-2.5 text-[10px] font-bold outline-none"
-                    >
-                      {FONT_OPTIONS.map(font => <option key={font.value} value={font.value} style={{fontFamily: font.value}}>{font.label}</option>)}
-                    </select>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-white/5 space-y-6">
-                    <ColorControl 
-                      label="Text Color" 
-                      currentColor={selectedLayer.color} 
-                      onColorChange={(color) => handleUpdateLayer({ color })} 
-                    />
-
-                    <div className="flex items-center justify-between">
-                      <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Text Background</label>
-                      <button 
-                        onClick={() => handleUpdateLayer({ bgActive: !selectedLayer.bgActive })}
-                        className={`w-10 h-5 rounded-full relative transition-colors ${selectedLayer.bgActive ? 'bg-blue-600' : 'bg-slate-800'}`}
-                      >
-                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${selectedLayer.bgActive ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
+                  {selectedLayer.type === 'text' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-slate-600 uppercase">Text Content</label>
+                        <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-4 py-4 text-sm text-white focus:border-blue-500 transition-colors outline-none" />
+                        <label className="block text-[9px] font-bold text-slate-600 uppercase mt-4">Font Family</label>
+                        <select value={selectedLayer.fontFamily} onChange={(e) => handleUpdateLayer({ fontFamily: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-3 text-[10px] font-bold uppercase">{FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}</select>
+                      </div>
+                      <ColorControl label="Text Color" currentColor={selectedLayer.color} onColorChange={(color) => handleUpdateLayer({ color })} />
                     </div>
+                  )}
 
-                    {selectedLayer.bgActive && (
-                      <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5 animate-in fade-in duration-200">
-                        <ColorControl 
-                          label="BG Color" 
-                          currentColor={selectedLayer.bgColor || '#000000'} 
-                          onColorChange={(bgColor) => handleUpdateLayer({ bgColor })} 
-                        />
-                        <div className="space-y-2 pt-2 border-t border-white/5">
-                           <div className="flex justify-between">
-                            <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">BG Opacity</label>
-                            <span className="text-[8px] font-black text-blue-500">{selectedLayer.bgOpacity}%</span>
-                           </div>
-                           <input type="range" min="0" max="100" value={selectedLayer.bgOpacity || 80} onChange={(e) => handleUpdateLayer({ bgOpacity: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
+                  {selectedLayer.type === 'sticker' && (
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-bold text-slate-600 uppercase">Sticker Picker</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {STICKER_OPTIONS.map(s => (
+                          <button key={s.id} onClick={() => handleUpdateLayer({ content: s.emoji })} className={`p-4 text-2xl rounded-lg border transition-all ${selectedLayer.content === s.emoji ? 'bg-blue-600/20 border-blue-500' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>{s.emoji}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedLayer.type === 'shape' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-slate-600 uppercase">Shape Type</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['rect', 'circle', 'triangle'].map(type => (
+                            <button key={type} onClick={() => handleUpdateLayer({ content: type })} className={`p-3 rounded-lg border text-[8px] font-black uppercase transition-all ${selectedLayer.content === type ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}>{type}</button>
+                          ))}
                         </div>
                       </div>
+                      <ColorControl label="Fill Color" currentColor={selectedLayer.color} onColorChange={(color) => handleUpdateLayer({ color })} />
+                    </div>
+                  )}
+
+                  <div className="space-y-6 pt-6 border-t border-white/5">
+                    {selectedLayer.type === 'text' || selectedLayer.type === 'sticker' ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Size</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.fontSize}px</span></div>
+                        <input type="range" min="10" max="800" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Width</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.width}px</span></div>
+                          <input type="range" min="10" max="1200" value={selectedLayer.width} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Height</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.height}px</span></div>
+                          <input type="range" min="10" max="1200" value={selectedLayer.height} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                        </div>
+                      </>
                     )}
-                  </div>
-
-                  <div className="space-y-3">
-                     <div className="flex justify-between items-center">
-                      <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Size & Opacity</label>
-                     </div>
-                     <div className="space-y-4">
-                       <div className="space-y-1">
-                          <span className="text-[8px] text-slate-500 font-bold">FONT SIZE: {selectedLayer.fontSize}PX</span>
-                          <input type="range" min="20" max="400" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                       </div>
-                       <div className="space-y-1">
-                          <span className="text-[8px] text-slate-500 font-bold">TEXT OPACITY: {selectedLayer.opacity}%</span>
-                          <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                       </div>
-                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Shape/Logo Style Controls */}
-              {selectedLayer && (selectedLayer.type === 'shape' || selectedLayer.type === 'logo') && !customResult && (
-                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                  {selectedLayer.type === 'shape' && (
-                    <div className="space-y-2">
-                      <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Shape Type</label>
-                      <div className="flex gap-2">
-                         <button onClick={() => handleUpdateLayer({ content: 'rect' })} className={`flex-1 py-3 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${selectedLayer.content === 'rect' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}>Rectangle</button>
-                         <button onClick={() => handleUpdateLayer({ content: 'circle' })} className={`flex-1 py-3 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${selectedLayer.content === 'circle' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}>Ellipse</button>
-                      </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Transparency</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.opacity}%</span></div>
+                      <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
                     </div>
-                  )}
-
-                  {selectedLayer.type === 'shape' && (
-                    <ColorControl 
-                      label="Shape Color" 
-                      currentColor={selectedLayer.color} 
-                      onColorChange={(color) => handleUpdateLayer({ color })} 
-                    />
-                  )}
-
-                  <div className="space-y-4">
-                     <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Dimensions</label>
-                     <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
-                       <div className="space-y-1">
-                          <div className="flex justify-between">
-                             <span className="text-[8px] text-slate-500 font-bold">WIDTH</span>
-                             <span className="text-[8px] font-black text-blue-500">{selectedLayer.width || selectedLayer.fontSize}PX</span>
-                          </div>
-                          <input type="range" min="10" max="1000" value={selectedLayer.width || selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                       </div>
-                       <div className="space-y-1">
-                          <div className="flex justify-between">
-                             <span className="text-[8px] text-slate-500 font-bold">HEIGHT</span>
-                             <span className="text-[8px] font-black text-blue-500">{selectedLayer.height || selectedLayer.fontSize}PX</span>
-                          </div>
-                          <input type="range" min="10" max="1000" value={selectedLayer.height || selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                       </div>
-                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                     <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Appearance</label>
-                     <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-[8px] text-slate-500 font-bold">OPACITY</span>
-                          <span className="text-[8px] font-black text-blue-500">{selectedLayer.opacity}%</span>
-                        </div>
-                        <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                     </div>
                   </div>
                 </div>
-              )}
-
-              {selectedLayer && selectedLayer.type === 'sticker' && !customResult && (
-                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                  <div className="space-y-3">
-                     <div className="flex justify-between items-center">
-                      <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Sticker Scale</label>
-                      <span className="text-[9px] font-black text-blue-500">{selectedLayer.fontSize}px</span>
-                     </div>
-                     <input type="range" min="40" max="400" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="w-full accent-blue-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {STICKER_OPTIONS.map(s => (
-                      <button key={s.id} onClick={() => handleUpdateLayer({ content: s.emoji })} className={`p-4 rounded-xl border ${selectedLayer.content === s.emoji ? 'bg-blue-600/20 border-blue-500' : 'bg-white/5 border-white/5'}`}>
-                        <span className="text-2xl">{s.emoji}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {toolMode === 'ai-eraser' && !customResult && (
-                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                   <div className="space-y-3">
-                     <div className="flex justify-between items-center">
-                      <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">Precision Brush</label>
-                      <span className="text-[9px] font-black text-blue-500">{brushSize}px</span>
-                     </div>
-                     <input type="range" min="5" max="150" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full accent-blue-500 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer" />
-                  </div>
-                  <p className="text-[8px] text-slate-500 font-bold leading-relaxed uppercase tracking-widest">Mark unwanted elements. AI reconstruction will trigger after you commit.</p>
+              ) : (
+                <div className="py-10 px-6 border border-white/5 rounded-2xl bg-white/[0.02] text-center">
+                  <p className="text-[9px] font-bold uppercase text-slate-500 tracking-wider">Select a layer on the canvas to refine its style.</p>
                 </div>
               )}
             </div>
 
-            <div className="space-y-4 mt-12">
-              {(layers.length > 0 || toolMode === 'remove-bg') && !customResult && (
-                <button 
-                   onClick={startCustomAction} 
-                   className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3"
-                >
-                   <Icons.Sparkles /> {toolMode === 'remove-bg' ? 'Remove Background' : 'Finalize Design'}
-                </button>
-              )}
-
-              {customResult && (
-                <div className="space-y-4 animate-in fade-in duration-500">
-                   <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] mb-4">Export Actions</h3>
-                   <button 
-                      onClick={() => downloadImage(customResult, 'final-result')} 
-                      className="w-full bg-white text-black py-6 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_10px_30px_rgba(255,255,255,0.1)] transition-all flex items-center justify-center gap-3 hover:bg-slate-200"
-                   >
-                      <Icons.Download /> Download Final
-                   </button>
-                   <button 
-                      onClick={handleApplyAndContinue} 
-                      className="w-full bg-blue-600/10 border border-blue-500/30 text-blue-400 py-6 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:bg-blue-600/20 transition-all"
-                   >
-                      Continue Editing
-                   </button>
+            <div className="mt-auto space-y-4 pb-10 lg:pb-0">
+              {customResult ? (
+                <div className="space-y-3">
+                  <button onClick={() => downloadImage(customResult, 'edited')} className="w-full bg-white text-black py-5 rounded-2xl font-black text-[11px] uppercase shadow-lg hover:bg-slate-200 transition-colors">Save To Storage</button>
+                  <button onClick={handleApplyAndContinue} className="w-full bg-blue-600/10 border border-blue-500/30 text-blue-400 py-5 rounded-2xl font-black text-[11px] uppercase hover:bg-blue-600/20 transition-all">Merge & Continue</button>
+                  <button onClick={() => setCustomResult(null)} className="w-full py-3 text-slate-500 font-black text-[10px] uppercase hover:text-slate-300">Discard Changes</button>
                 </div>
+              ) : (
+                <button onClick={startCustomAction} disabled={!customImage} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black text-[12px] uppercase tracking-[0.3em] shadow-xl shadow-blue-600/20 disabled:opacity-20 transition-all active:scale-95">
+                   {toolMode.includes('add') ? 'COMMIT LAYER' : 'PROCESS AI TASK'}
+                </button>
               )}
             </div>
           </div>
         </main>
       )}
 
-      {enlargedImage && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-6" onClick={() => setEnlargedImage(null)}>
-          <img src={enlargedImage} className="max-w-full max-h-[90vh] rounded-xl border border-white/10 shadow-2xl" />
-        </div>
-      )}
+      {enlargedImage && <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 sm:p-20" onClick={() => setEnlargedImage(null)}><img src={enlargedImage} className="max-w-full max-h-full rounded-xl border border-white/10 shadow-2xl cursor-zoom-out" alt="Enlarged" /></div>}
 
       <footer className="flex-none py-3 text-center bg-black border-t border-white/5">
-        <span className="text-[9px] font-black text-slate-700 uppercase tracking-[0.6em]">JAGO-HP PRODUCTION INFRASTRUCTURE v2.5</span>
+        <span className="text-[8px] sm:text-[9px] font-black text-slate-800 uppercase tracking-[0.6em] italic">JAGO-HP PRODUCTION PIPELINE v2.6.1</span>
       </footer>
     </div>
   );
