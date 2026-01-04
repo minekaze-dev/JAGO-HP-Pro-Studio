@@ -501,7 +501,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3">
               <span className="text-2xl font-black tracking-widest text-white uppercase italic font-orbitron">JAGO-HP</span>
               <span className="h-5 w-[1px] bg-slate-800 hidden sm:block"></span>
-              <span className="text-[10px] font-bold text-blue-500 hidden sm:block tracking-[0.3em]">CUSTOM STUDIO</span>
+              <span className="text-[10px] font-bold text-blue-500 hidden sm:block tracking-[0.3em]">CONTENT STUDIO</span>
             </div>
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] mt-0.5 leading-none">High-Fidelity Product Visualization</p>
           </div>
