@@ -537,7 +537,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="group">
                   <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2 ml-1 tracking-wider">Social Media</label>
-                  <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={2} placeholder="e.g. @jagohp" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 transition-all text-xs text-slate-400 resize-none font-medium" />
+                  <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={2} placeholder="e.g. Follow us on Instagram @jagohp" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 transition-all text-xs text-slate-400 resize-none font-medium" />
                 </div>
               </div>
             </div>
