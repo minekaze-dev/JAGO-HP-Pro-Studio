@@ -10,19 +10,17 @@ export type CustomToolMode = 'remove-bg' | 'ai-eraser' | 'add-text' | 'add-stick
 export interface CustomLayer {
   id: string;
   type: 'text' | 'sticker' | 'shape' | 'logo';
-  content: string; // For text: content. For shape: 'rect'/'circle'. For sticker: emoji. For logo: 'custom'.
-  imageData?: string; // Base64 for custom logo
+  content: string;
+  imageData?: string;
   x: number;
   y: number;
-  fontSize: number; // For text size, sticker size, or baseline scale
+  fontSize: number;
   fontFamily?: string;
   color: string;
   opacity: number;
-  // Text specific properties
   bgActive?: boolean;
   bgColor?: string;
   bgOpacity?: number;
-  // Shape/Logo specific properties
   width?: number;
   height?: number;
 }
@@ -46,9 +44,17 @@ export interface PosterConfig {
 export interface GeneratedResult {
   imageUrl: string;
   promptUsed: string;
+  caption?: string;
+  hashtags?: string[];
 }
 
 export interface GeneratedBatch {
   results: GeneratedResult[];
   timestamp: number;
+}
+
+export interface CaptionToolsResult {
+  shortCaptions: string[];
+  longCaptions: string[];
+  hashtags: string[];
 }

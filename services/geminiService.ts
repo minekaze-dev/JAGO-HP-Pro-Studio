@@ -1,6 +1,6 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { PosterConfig, MoodType, GeneratedResult } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { PosterConfig, MoodType, GeneratedResult, CaptionToolsResult } from "../types";
 
 const MOOD_PROMPT_MAP: Record<MoodType, string> = {
   modern: "Modern minimalist high-tech aesthetic, clean product-focused layout, neutral studio background, premium gadget branding",
@@ -24,193 +24,131 @@ const DEVICE_DESC_MAP = {
   videotron: "a massive high-definition outdoor videotron / digital billboard integrated into a cinematic city environment",
 };
 
-export const editImageTask = async (imageData: string, task: 'remove-bg' | 'remove-text' | 'add-text-manual' | 'polish-design', extraPrompt?: string): Promise<string> => {
+export const generateMarketingCaptions = async (ageRange: string, website: string, platform: string): Promise<CaptionToolsResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  const prompt = `Anda adalah Spesialis Social Media Marketing Senior. 
+  Analisis website ini: ${website}. 
+  
+  PLATFORM TARGET: ${platform}.
+  KONTEKS BRAND: JAGO-HP adalah website review HP berbasis AI tercanggih yang membantu pengguna menemukan smartphone yang paling pas sesuai kebutuhan dan budget mereka.
+  
+  TUGAS: Buatkan strategi caption media sosial dalam BAHASA INDONESIA yang menarik untuk target audiens usia ${ageRange} khusus untuk platform ${platform}.
+  TUJUAN: Mengajak orang untuk mengunjungi website ${website} dan menggunakan AI JAGO-HP untuk memilih HP baru.
+
+  Hasilkan:
+  - 3 Caption Pendek.
+  - 3 Caption Panjang.
+  - 5 Hashtag.
+
+  Kembalikan HANYA objek JSON dengan format:
+  { 
+    "shortCaptions": ["..."], 
+    "longCaptions": ["..."], 
+    "hashtags": ["#jagohp", "..."] 
+  }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            shortCaptions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            longCaptions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["shortCaptions", "longCaptions", "hashtags"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text || "{}");
+  } catch (err: any) {
+    throw new Error("Gagal menghasilkan caption. Silakan coba lagi nanti.");
+  }
+};
+
+const generateCopy = async (config: PosterConfig, variationIndex: number): Promise<{ caption: string; hashtags: string[] }> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Buat caption postingan media sosial Bahasa Indonesia untuk brand JAGO-HP. Konteks variasi #${variationIndex + 1}. Produk: ${config.title || "Smartphone Terbaru"}. Tone: ${config.mood}. Hashtag wajib: #jagohp. JSON: { "caption": "...", "hashtags": ["#jagohp", "..."] }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            caption: { type: Type.STRING },
+            hashtags: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["caption", "hashtags"]
+        }
+      }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch {
+    return { caption: "Dapatkan smartphone impian Anda dengan bantuan AI JAGO-HP.", hashtags: ["#jagohp", "#Tech"] };
+  }
+};
+
+export const editImageTask = async (
+  imageData: string, 
+  task: 'remove-bg' | 'remove-text', 
+  bgColor?: string,
+  maskData?: string
+): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   let prompt = "";
+  
   if (task === 'remove-bg') {
-    prompt = "Isolate the main subject by removing the entire background. Place the subject on a clean, sophisticated, neutral studio backdrop. Enhance lighting and shadows on the subject for a professional product photography look.";
+    prompt = bgColor 
+      ? `Detect the main subject in the center. Completely replace the background with a flat solid color: ${bgColor}. Maintain professional studio lighting on the subject.`
+      : "Detect the main subject and remove the background completely to make it transparent or solid white. Keep edges crisp and professional.";
   } else if (task === 'remove-text') {
-    prompt = `STRICT MASK-BASED REMOVAL (PRECISION MODE): 
-       The image provided has BLUE BRUSH STROKES marking specific areas for removal.
-       1. TARGET: Identify all pixels covered by the BLUE color. 
-       2. ACTION: Remove ONLY the content directly underneath those blue markings.
-       3. INPAINTING: Fill the erased zones by seamlessly sampling from the surrounding background.
-       4. FORBIDDEN: Do NOT alter, blur, or remove any text, logos, or objects that are NOT covered by the blue brush.
-       5. INTEGRITY: The final image must look original, as if the marked elements never existed.`;
-  } else if (task === 'add-text-manual') {
-    prompt = `STRICT INSTRUCTION: Your goal is to add text to this image exactly as described by the user. 
-       User Instruction: "${extraPrompt}"
-       1. INTEGRATION: The text must look like a natural, high-end part of the graphic design. 
-       2. TYPOGRAPHY: Use high-quality professional fonts that complement the existing style.
-       3. CLARITY: Ensure the added text is sharp and highly readable.`;
-  } else if (task === 'polish-design') {
-    prompt = `PROFESSIONAL DESIGN REFURBISHMENT: 
-       1. COMPOSITION REPAIR: Analyze the entire image for unnatural gaps. 
-       2. SEAMLESS HARMONY: Smooth out textures and adjust the background elements to ensure a perfectly flowing, professional composition.
-       3. VISUAL FLOW: Reconnect separated design elements.
-       4. ENHANCE: Subtly polish colors and contrast. 
-       5. RESTRICTION: DO NOT ADD NEW TEXT. DO NOT ADD ANY LOGOS OR ICONS.`;
+    prompt = "The provided images include a base image and a mask. The red areas in the second image indicate objects or text that must be erased. Cleanly remove these elements and seamlessly fill the background to match the original surrounding textures.";
   }
 
-  const parts = [
+  const parts: any[] = [
     { text: prompt },
     { inlineData: { mimeType: 'image/png', data: imageData.split(',')[1] } }
   ];
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts },
-    });
+  if (maskData) {
+    parts.push({ inlineData: { mimeType: 'image/png', data: maskData.split(',')[1] } });
+  }
 
-    let imageUrl = '';
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-          break;
-        }
+  const response = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: { parts } });
+  let imageUrl = '';
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+        break;
       }
     }
-
-    if (!imageUrl) throw new Error("Editing failed. No image returned.");
-    return imageUrl;
-  } catch (err: any) {
-    console.error("Gemini Edit Error:", err);
-    throw new Error("Failed to process image. " + (err.message || "Unknown error"));
   }
+  return imageUrl;
 };
 
 const fetchSingleVariation = async (config: PosterConfig, variationIndex: number, isRevision: boolean = false): Promise<GeneratedResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  // If backgroundOnly is true, we strictly ignore everything else
+  const copy = await generateCopy(config, variationIndex);
+
   if (config.backgroundOnly) {
-    const prompt = `You are an elite Digital Environment Artist.
-    TASK: Generate a World-Class Cinematic Studio Background Plate.
-    - MOOD: ${MOOD_PROMPT_MAP[config.mood]}
-    - VISUALS: Create a pure, high-end commercial environment. Use elegant lighting, sophisticated textures, and professional depth-of-field.
-    - STRICT PROHIBITION: 
-      1. ABSOLUTELY NO TEXT. 
-      2. ABSOLUTELY NO LOGOS. 
-      3. ABSOLUTELY NO SMARTPHONES, LAPTOPS, OR HARDWARE DEVICES.
-      4. ABSOLUTELY NO PEOPLE.
-    - FOCUS: Pure artistic atmosphere, lighting, and premium studio composition. This will be used as a design plate for a luxury tech brand.
-    - VARIATION ${variationIndex + 1}: ${variationIndex === 0 ? 'Geometric light play' : variationIndex === 1 ? 'Soft volumetric mist' : 'Sharp neon edge reflections'}.
-    TECHNICAL QUALITY: 8k resolution, photorealistic, cinematic rendering.`;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: [{ text: prompt }],
-        config: { imageConfig: { aspectRatio: config.ratio } }
-      });
-
-      let imageUrl = '';
-      if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-            break;
-          }
-        }
-      }
-      if (!imageUrl) throw new Error("API did not return an image part.");
-      return { imageUrl, promptUsed: prompt };
-    } catch (err: any) {
-      throw new Error(err.message || "Background generation failed.");
-    }
-  }
-
-  const hasBranding = config.logoIconBase64 || config.logoTextBase64;
-  const layoutInstruction = `ADHERENCE TO GRID: ${hasBranding ? `Place the provided branding assets precisely in the ${config.logoPosition.replace('-', ' ')} sector.` : "STRICTLY DO NOT add any logos, icons, symbols, or branding marks. Keep the layout free of logos."} Variation #${variationIndex + 1}.`;
-  
-  const titlePart = config.title.trim() 
-    ? `- Main Title: "${config.title}" using ${TITLE_SIZE_MAP[config.titleSize]}.` 
-    : "- Main Title: DO NOT ADD ANY MAIN TITLE TEXT.";
-  
-  const taglinePart = config.tagline.trim()
-    ? `- Tagline: Must be exactly "${config.tagline}".`
-    : "- Tagline: DO NOT ADD ANY TAGLINE TEXT.";
-    
-  const marketingPart = config.marketing.trim()
-    ? `- Marketing Handle: Must be exactly "${config.marketing}".`
-    : "- Marketing Handle: DO NOT ADD ANY SOCIAL MEDIA TEXT.";
-
-  const typographyInstruction = `TYPOGRAPHY ACCURACY & STYLE: 
-  ${titlePart}
-  ${taglinePart}
-  ${marketingPart}
-  - CRITICAL: IF A TEXT FIELD IS EMPTY, DO NOT ADD TEXT FOR IT.
-  - STYLE: Use a clean, professional, high-end modern font. Use creative typographic arrangements for maximum visual appeal.`;
-
-  const brandingLogic = `BRANDING ASSET INTEGRATION:
-  ${config.logoIconBase64 && config.logoTextBase64 
-    ? "- BOTH ASSETS PROVIDED: Combine Icon and Text Logo into a unified lockup." 
-    : config.logoIconBase64 
-      ? "- ONLY ICON PROVIDED: Use ONLY provided graphic icon."
-      : config.logoTextBase64
-        ? "- ONLY TEXT PROVIDED: Use ONLY provided typographic logo."
-        : "- NO ASSETS PROVIDED: ABSOLUTELY DO NOT ADD ANY LOGO OR ICON."}`;
-
-  let visualContext = "";
-  if (config.noMockup) {
-    visualContext = `
-    TASK: Design a high-impact Editorial Style Typography-First Poster.
-    - NO HARDWARE: Strictly DO NOT include any smartphones, laptops, PCs, or hardware devices.
-    - ART DIRECTION: Create a premium, cinematic abstract background that complements the text. Use dynamic light streaks, elegant gradients, or high-end studio textures.
-    - TYPOGRAPHY FOCUS: Since there is no physical product, the TYPOGRAPHY IS THE HERO. Arrange the text with extreme professional flair, balancing white space and bold focal points to attract customers instantly.
-    - DESIGN STYLE: Think high-fashion magazine covers or elite tech launch visuals. Use sophisticated layering where text might interact with background light/shadows.
-    `;
-  } else {
-    const mockupLogic = config.mockupScreenshot
-      ? `MOCKUP INTEGRATION: Map the provided screenshot image EXACTLY onto the ${config.mockupType} screen. Ensure realistic integration with reflections and glass textures.`
-      : `MOCKUP HARDWARE: Render ${DEVICE_DESC_MAP[config.mockupType]} as the centerpiece with commercial-grade studio lighting.`;
-    
-    visualContext = `
-    TASK: Design a hyper-realistic commercial poster for ${DEVICE_DESC_MAP[config.mockupType]}.
-    ${mockupLogic}
-    `;
-  }
-
-  const prompt = `You are a World-Class Senior Graphic Design Expert. 
-  
-  ${visualContext}
-  
-  ${brandingLogic}
-  
-  STRICT RULES:
-  1. NO TYPOS: Verify every character. 
-  2. NO SELF-BRANDING: Do NOT include watermarks/text not explicitly provided.
-  3. COMPOSITION: ${layoutInstruction}
-  4. FONTS: ${typographyInstruction}
-  
-  VISUALS:
-  - MOOD: ${MOOD_PROMPT_MAP[config.mood]}
-  - LIGHTING: Variation ${variationIndex + 1}: ${variationIndex === 0 ? 'Dramatic rim lighting' : variationIndex === 1 ? 'Soft studio flood' : 'Neon accent glares'}.
-  
-  TECHNICAL QUALITY: 8k resolution, photorealistic, commercial photography standards.`;
-
-  const parts: any[] = [{ text: prompt }];
-  
-  if (config.logoIconBase64) {
-    parts.push({ inlineData: { mimeType: 'image/png', data: config.logoIconBase64.split(',')[1] } });
-  }
-  if (config.logoTextBase64) {
-    parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
-  }
-  if (!config.noMockup && config.mockupScreenshot) {
-    parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
-  }
-
-  try {
+    const prompt = `Studio background photography. MOOD: ${MOOD_PROMPT_MAP[config.mood]}. Empty professional space, cinematic depth, no devices, no text.`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts },
+      contents: [{ text: prompt }],
       config: { imageConfig: { aspectRatio: config.ratio } }
     });
-
     let imageUrl = '';
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
@@ -220,19 +158,73 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
         }
       }
     }
-
-    if (!imageUrl) throw new Error("API did not return an image part.");
-    return { imageUrl, promptUsed: prompt };
-  } catch (err: any) {
-    console.error("Gemini Image Generation Error:", err);
-    throw new Error(err.message || "Failed to generate image.");
+    return { imageUrl, promptUsed: prompt, caption: copy.caption, hashtags: copy.hashtags };
   }
+
+  const deviceDesc = DEVICE_DESC_MAP[config.mockupType];
+  const moodDesc = MOOD_PROMPT_MAP[config.mood];
+  const titleSizeDesc = TITLE_SIZE_MAP[config.titleSize];
+
+  // Logic for Social Context Text (e.g., IG Handle)
+  const isSocialHandle = config.marketing.includes('@') || config.marketing.toLowerCase().includes('ig:') || config.marketing.toLowerCase().includes('instagram:');
+  const socialHandlePrompt = isSocialHandle 
+    ? `- SOCIAL HANDLE: Place the text "${config.marketing}" in a very small, professional, unobtrusive font at the bottom center or bottom corner of the poster.` 
+    : `- SOCIAL CONTEXT: Use "${config.marketing}" as additional branding inspiration.`;
+
+  const hasUserText = config.title.trim() !== "" || config.tagline.trim() !== "";
+  const textInstruction = hasUserText 
+    ? `
+- Primary Title: "${config.title}" (${titleSizeDesc}).
+- Tagline: "${config.tagline}".
+${socialHandlePrompt}
+    `
+    : "- TYPOGRAPHY: DO NOT generate any text, headlines, or brand names. The output must be PURELY VISUAL with no letters or symbols, except perhaps the small social handle if specified.";
+
+  const brandingInstruction = (config.logoIconBase64 || config.logoTextBase64)
+    ? `- LOGO OVERLAY: The provided image assets are high-fidelity brand logos. Place them cleanly as crisp floating overlays at the ${config.logoPosition} position.`
+    : "- BRANDING: DO NOT add any default or generic logos.";
+
+  let mainPrompt = `Professional Tech Marketing Visual:
+Target Hardware: ${config.noMockup ? "None (product-less background)" : deviceDesc}.
+Aesthetic: ${moodDesc}.
+Text Hierarchy: ${textInstruction}
+${brandingInstruction}
+
+COMPOSITION RULES:
+${config.mockupScreenshot ? `- SCREEN MAPPING: Use the provided screenshot image context. Map it perfectly onto the display of the ${config.mockupType}.` : `- SCREEN CONTENT: Generate a sleek high-tech UI matching the ${config.mood} theme.`}
+- Quality: Commercial studio photography, 8K resolution feel.
+- Format: Strictly respect ${config.ratio} aspect ratio.
+${config.noMockup ? "- Focus exclusively on clean typography and abstract background plate." : ""}`;
+
+  const parts: any[] = [{ text: mainPrompt }];
+  
+  if (config.logoIconBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoIconBase64.split(',')[1] } });
+  if (config.logoTextBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
+  if (config.mockupScreenshot) parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts },
+    config: { imageConfig: { aspectRatio: config.ratio } }
+  });
+
+  let imageUrl = '';
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+        break;
+      }
+    }
+  }
+  return { imageUrl, promptUsed: mainPrompt, caption: copy.caption, hashtags: copy.hashtags };
 };
 
 export const generatePosterBatch = async (config: PosterConfig, isRevision: boolean = false): Promise<GeneratedResult[]> => {
   return Promise.all([
     fetchSingleVariation(config, 0, isRevision),
     fetchSingleVariation(config, 1, isRevision),
-    fetchSingleVariation(config, 2, isRevision)
+    fetchSingleVariation(config, 2, isRevision),
+    fetchSingleVariation(config, 3, isRevision)
   ]);
 };

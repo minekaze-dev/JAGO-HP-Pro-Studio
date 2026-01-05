@@ -47,14 +47,23 @@ export const FONT_OPTIONS = [
 ];
 
 export const STICKER_OPTIONS = [
-  { id: 'fire', emoji: '🔥', label: 'Hot' },
   { id: 'robot', emoji: '🤖', label: 'AI Bot' },
+  { id: 'fire', emoji: '🔥', label: 'Hot' },
   { id: 'sparkles', emoji: '✨', label: 'Magic' },
   { id: 'rocket', emoji: '🚀', label: 'Launch' },
   { id: 'diamond', emoji: '💎', label: 'Premium' },
   { id: 'mobile', emoji: '📱', label: 'Device' },
   { id: 'thunder', emoji: '⚡', label: 'Power' },
   { id: 'star', emoji: '⭐', label: 'Top' },
+  { id: 'chip', emoji: '🔌', label: 'Tech' },
+  { id: 'globe', emoji: '🌐', label: 'Network' },
+  { id: 'shield', emoji: '🛡️', label: 'Secure' },
+];
+
+export const SHAPE_OPTIONS = [
+  { id: 'rect', label: 'Square/Rect', icon: '■' },
+  { id: 'circle', label: 'Circle/Oval', icon: '●' },
+  { id: 'triangle', label: 'Triangle', icon: '▲' },
 ];
 
 export const Icons = {

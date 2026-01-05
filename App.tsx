@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   MOOD_OPTIONS, 
@@ -7,10 +8,11 @@ import {
   MOCKUP_DEVICE_OPTIONS, 
   Icons, 
   FONT_OPTIONS, 
-  STICKER_OPTIONS 
+  STICKER_OPTIONS,
+  SHAPE_OPTIONS 
 } from './constants';
-import { PosterConfig, GeneratedBatch, CustomToolMode, CustomLayer } from './types';
-import { generatePosterBatch, editImageTask } from './services/geminiService';
+import { PosterConfig, GeneratedBatch, CustomToolMode, CustomLayer, CaptionToolsResult } from './types';
+import { generatePosterBatch, editImageTask, generateMarketingCaptions } from './services/geminiService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'generator' | 'custom'>('generator');
@@ -32,12 +34,22 @@ const App: React.FC = () => {
   const [batch, setBatch] = useState<GeneratedBatch | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  // Caption Tools State
+  const [showCaptionTools, setShowCaptionTools] = useState(false);
+  const [ageRange, setAgeRange] = useState("18-35");
+  const [websiteLink, setWebsiteLink] = useState("www.jagohp.site");
+  const [platformTarget, setPlatformTarget] = useState("Instagram");
+  const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
+  const [captionResults, setCaptionResults] = useState<CaptionToolsResult | null>(null);
 
   // Custom Tools State
   const [customImage, setCustomImage] = useState<string | null>(null);
-  const [customResult, setCustomResult] = useState<string | null>(null);
   const [toolMode, setToolMode] = useState<CustomToolMode>('remove-bg');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [removeBgMode, setRemoveBgMode] = useState<'transparent' | 'color'>('transparent');
+  const [removeBgColor, setRemoveBgColor] = useState('#000000');
   
   // Interactive Layers State
   const [layers, setLayers] = useState<CustomLayer[]>([]);
@@ -45,31 +57,51 @@ const App: React.FC = () => {
   const [isDraggingLayer, setIsDraggingLayer] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   
+  // AI Eraser Brush State
+  const [brushSize, setBrushSize] = useState(40);
+  const [isDrawingMask, setIsDrawingMask] = useState(false);
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
   
-  // Property States for new objects
+  // Global Active Props
   const [activeFont, setActiveFont] = useState('Orbitron');
   const [activeColor, setActiveColor] = useState('#ffffff');
   const [activeSize, setActiveSize] = useState(150);
+  const [activeOpacity, setActiveOpacity] = useState(100);
+  const [selectedSticker, setSelectedSticker] = useState(STICKER_OPTIONS[0].emoji);
+  const [selectedShape, setSelectedShape] = useState(SHAPE_OPTIONS[0].id);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    setConfig(prev => ({ ...prev, [name]: val }));
+    const { name, value } = e.target;
+    setConfig(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name: string, value: string) => {
     setConfig(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleGenerateCaptions = async () => {
+    setIsGeneratingCaptions(true);
+    setCaptionResults(null);
+    try {
+      const res = await generateMarketingCaptions(ageRange, websiteLink, platformTarget);
+      setCaptionResults(res);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsGeneratingCaptions(false);
+    }
+  };
+
   const handleStartCustomEdit = (imageUrl: string) => {
     setCustomImage(imageUrl);
-    setCustomResult(null);
     setLayers([]);
     setSelectedLayerId(null);
+    clearMask();
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       imageRef.current = img;
       renderCanvas();
@@ -78,7 +110,150 @@ const App: React.FC = () => {
     setView('custom');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'icon' | 'text' | 'mockup' | 'custom' | 'custom-layer-logo') => {
+  const handleResetCanvas = () => {
+    if (confirm("Reset canvas and clear all layers?")) {
+      setLayers([]);
+      setSelectedLayerId(null);
+      setCustomImage(null);
+      imageRef.current = null;
+      clearMask();
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  };
+
+  const clearMask = () => {
+    const mCtx = maskCanvasRef.current?.getContext('2d');
+    if (mCtx && maskCanvasRef.current) {
+      mCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    }
+  };
+
+  const handleUpdateLayer = (updates: Partial<CustomLayer>) => {
+    if (!selectedLayerId) return;
+    setLayers(prev => prev.map(l => l.id === selectedLayerId ? { ...l, ...updates } : l));
+  };
+
+  const handleDeleteLayer = () => {
+    if (!selectedLayerId) return;
+    setLayers(prev => prev.filter(l => l.id !== selectedLayerId));
+    setSelectedLayerId(null);
+  };
+
+  const getCoordinates = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  };
+
+  const handleMouseDown = (e: any) => {
+    const { x, y } = getCoordinates(e);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scaleFactor = canvas.width / 1000;
+
+    if (toolMode === 'ai-eraser') {
+      setIsDrawingMask(true);
+      drawOnMask(x, y);
+      return;
+    }
+
+    const clickedLayer = [...layers].reverse().find(layer => {
+      let w = 0, h = 0;
+      if (layer.type === 'text') {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily || 'Orbitron'}"`;
+          w = ctx.measureText(layer.content).width;
+          h = layer.fontSize * scaleFactor;
+        }
+      } else if (layer.type === 'sticker' || layer.type === 'logo') {
+        w = (layer.fontSize * (layer.type === 'logo' ? 1.5 : 1)) * scaleFactor;
+        h = layer.fontSize * scaleFactor;
+      } else if (layer.type === 'shape') {
+        w = (layer.width || 200) * scaleFactor;
+        h = (layer.height || 200) * scaleFactor;
+      }
+      const pad = 15 * scaleFactor;
+      return x >= layer.x - w/2 - pad && x <= layer.x + w/2 + pad && y >= layer.y - h/2 - pad && y <= layer.y + h/2 + pad;
+    });
+
+    if (clickedLayer) {
+      setSelectedLayerId(clickedLayer.id);
+      setIsDraggingLayer(true);
+      dragOffset.current = { x: x - clickedLayer.x, y: y - clickedLayer.y };
+      setActiveColor(clickedLayer.color);
+      if (clickedLayer.fontFamily) setActiveFont(clickedLayer.fontFamily);
+      setActiveSize(clickedLayer.fontSize);
+      setActiveOpacity(clickedLayer.opacity);
+    } else {
+      setSelectedLayerId(null);
+      const id = Math.random().toString(36).substr(2, 9);
+      if (toolMode === 'add-text') {
+        setLayers([...layers, { id, type: 'text', content: 'BRAND MESSAGE', x, y, fontSize: activeSize, color: activeColor, fontFamily: activeFont, opacity: activeOpacity, bgActive: true, bgColor: '#000000', bgOpacity: 85 }]);
+        setSelectedLayerId(id);
+      } else if (toolMode === 'add-sticker') {
+        setLayers([...layers, { id, type: 'sticker', content: selectedSticker, x, y, fontSize: activeSize, color: activeColor, opacity: activeOpacity }]);
+        setSelectedLayerId(id);
+      } else if (toolMode === 'add-shape') {
+        setLayers([...layers, { id, type: 'shape', content: selectedShape, x, y, fontSize: activeSize, color: activeColor, opacity: activeOpacity, width: 250, height: 100 }]);
+        setSelectedLayerId(id);
+      } else if (toolMode === 'add-logo') {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/*';
+        input.onchange = (ev: any) => {
+          const file = ev.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+              setLayers([...layers, { id, type: 'logo', content: 'logo', imageData: re.target?.result as string, x, y, fontSize: 300, color: '#fff', opacity: 100 }]);
+              setSelectedLayerId(id);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      }
+    }
+  };
+
+  const handleMouseMove = (e: any) => {
+    const { x, y } = getCoordinates(e);
+    if (toolMode === 'ai-eraser' && isDrawingMask) {
+      drawOnMask(x, y);
+      return;
+    }
+    if (!isDraggingLayer || !selectedLayerId) return;
+    handleUpdateLayer({ x: x - dragOffset.current.x, y: y - dragOffset.current.y });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingLayer(false);
+    setIsDrawingMask(false);
+  };
+
+  const drawOnMask = (x: number, y: number) => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    renderCanvas();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'icon' | 'text' | 'mockup' | 'custom') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -87,43 +262,20 @@ const App: React.FC = () => {
         if (type === 'icon') setConfig(prev => ({ ...prev, logoIconBase64: base64 }));
         else if (type === 'text') setConfig(prev => ({ ...prev, logoTextBase64: base64 }));
         else if (type === 'mockup') setConfig(prev => ({ ...prev, mockupScreenshot: base64 }));
-        else if (type === 'custom') {
-          handleStartCustomEdit(base64);
-        } else if (type === 'custom-layer-logo') {
-          const newLayer: CustomLayer = {
-            id: Math.random().toString(36).substr(2, 9),
-            type: 'logo',
-            content: 'custom',
-            imageData: base64,
-            x: 500,
-            y: 500,
-            fontSize: 200,
-            width: 200,
-            height: 200,
-            color: '#fff',
-            opacity: 100
-          };
-          setLayers([...layers, newLayer]);
-          setSelectedLayerId(newLayer.id);
-        }
+        else if (type === 'custom') handleStartCustomEdit(base64);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = async (isRevision: boolean = false) => {
+  const handleGenerate = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const results = await generatePosterBatch(config, isRevision);
+      const results = await generatePosterBatch(config);
       setBatch({ results, timestamp: Date.now() });
-      if (window.innerWidth < 1024) {
-        setTimeout(() => {
-          document.getElementById('render-output-stage')?.scrollIntoView({ behavior: 'smooth' });
-        }, 500);
-      }
     } catch (err: any) {
-      setError(err.message || "An error occurred during batch generation.");
+      setError(err.message || "An error occurred.");
     } finally {
       setIsLoading(false);
     }
@@ -131,38 +283,39 @@ const App: React.FC = () => {
 
   const startCustomAction = async () => {
     if (!customImage) return;
-    if (toolMode === 'add-text' || toolMode === 'add-sticker' || toolMode === 'add-shape' || toolMode === 'add-logo') {
-      if (canvasRef.current) {
-        setSelectedLayerId(null);
-        setTimeout(() => {
-          if (canvasRef.current) {
-            setCustomResult(canvasRef.current.toDataURL('image/png'));
-          }
-        }, 50);
+    
+    // For AI processing tools (Eraser, Remove BG)
+    if (toolMode === 'remove-bg' || toolMode === 'ai-eraser') {
+      setIsProcessing(true);
+      try {
+        let maskData: string | undefined;
+        if (toolMode === 'ai-eraser' && maskCanvasRef.current) {
+          maskData = maskCanvasRef.current.toDataURL('image/png');
+        }
+        
+        const res = await editImageTask(
+          customImage, 
+          toolMode === 'ai-eraser' ? 'remove-text' : 'remove-bg',
+          toolMode === 'remove-bg' && removeBgMode === 'color' ? removeBgColor : undefined,
+          maskData
+        );
+        
+        // Continuous Edit: The result becomes the new base image
+        setCustomImage(res);
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          imageRef.current = img;
+          clearMask();
+          renderCanvas();
+        };
+        img.src = res;
+      } catch (err: any) { 
+        alert(err.message); 
+      } finally { 
+        setIsProcessing(false); 
       }
-      return;
     }
-    setIsProcessing(true);
-    try {
-      let imageDataToSend = customImage;
-      if (toolMode === 'ai-eraser' && canvasRef.current) {
-        imageDataToSend = canvasRef.current.toDataURL('image/png');
-      }
-      const task = toolMode === 'ai-eraser' ? 'remove-text' : 'remove-bg';
-      const res = await editImageTask(imageDataToSend, task as any);
-      setCustomResult(res);
-      setLayers([]);
-      setSelectedLayerId(null);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleApplyAndContinue = () => {
-    if (!customResult) return;
-    handleStartCustomEdit(customResult);
   };
 
   const renderCanvas = async () => {
@@ -170,335 +323,215 @@ const App: React.FC = () => {
     if (!canvas || !customImage || !imageRef.current) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    if (!maskCanvasRef.current) {
+      maskCanvasRef.current = document.createElement('canvas');
+    }
+    if (maskCanvasRef.current.width !== imageRef.current.width) {
+      maskCanvasRef.current.width = imageRef.current.width;
+      maskCanvasRef.current.height = imageRef.current.height;
+    }
 
     canvas.width = imageRef.current.width;
     canvas.height = imageRef.current.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(imageRef.current, 0, 0);
-
     const scaleFactor = canvas.width / 1000;
 
     for (const layer of layers) {
       ctx.save();
       ctx.globalAlpha = layer.opacity / 100;
-
+      let w = 0, h = 0;
       if (layer.type === 'text') {
-        ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily || 'Orbitron'}"`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const metrics = ctx.measureText(layer.content);
+        w = metrics.width; h = layer.fontSize * scaleFactor;
+        if (layer.bgActive) {
+          ctx.save();
+          ctx.fillStyle = layer.bgColor || '#000000';
+          ctx.globalAlpha = (layer.bgOpacity || 85) / 100;
+          const px = 25 * scaleFactor;
+          const py = 15 * scaleFactor;
+          ctx.fillRect(layer.x - w/2 - px, layer.y - h/2 - py, w + px*2, h + py*2);
+          ctx.restore();
+        }
         ctx.fillStyle = layer.color;
         ctx.fillText(layer.content, layer.x, layer.y);
-      } 
-      else if (layer.type === 'sticker') {
+      } else if (layer.type === 'sticker') {
         ctx.font = `${layer.fontSize * scaleFactor}px serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(layer.content, layer.x, layer.y);
-      }
-      else if (layer.type === 'shape') {
+        w = layer.fontSize * scaleFactor; h = layer.fontSize * scaleFactor;
+      } else if (layer.type === 'shape') {
         ctx.fillStyle = layer.color;
-        const w = (layer.width || layer.fontSize) * scaleFactor;
-        const h = (layer.height || layer.fontSize) * scaleFactor;
-        
-        if (layer.content === 'rect') {
-          ctx.fillRect(layer.x - w / 2, layer.y - h / 2, w, h);
-        } else if (layer.content === 'circle') {
-          ctx.beginPath();
-          ctx.ellipse(layer.x, layer.y, w / 2, h / 2, 0, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (layer.content === 'triangle') {
-          ctx.beginPath();
-          ctx.moveTo(layer.x, layer.y - h / 2);
-          ctx.lineTo(layer.x + w / 2, layer.y + h / 2);
-          ctx.lineTo(layer.x - w / 2, layer.y + h / 2);
-          ctx.closePath();
-          ctx.fill();
+        w = (layer.width || 250) * scaleFactor;
+        h = (layer.height || 100) * scaleFactor;
+        if (layer.content === 'rect') ctx.fillRect(layer.x - w/2, layer.y - h/2, w, h);
+        else if (layer.content === 'circle') { ctx.beginPath(); ctx.ellipse(layer.x, layer.y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill(); }
+        else if (layer.content === 'triangle') {
+          ctx.beginPath(); ctx.moveTo(layer.x, layer.y - h/2); ctx.lineTo(layer.x + w/2, layer.y + h/2); ctx.lineTo(layer.x - w/2, layer.y + h/2); ctx.closePath(); ctx.fill();
         }
-      }
-      else if (layer.type === 'logo' && layer.imageData) {
-        const w = (layer.width || layer.fontSize) * scaleFactor;
-        const h = (layer.height || layer.fontSize) * scaleFactor;
-        const logoImg = new Image();
-        logoImg.src = layer.imageData;
-        if (logoImg.complete) {
-            ctx.drawImage(logoImg, layer.x - w / 2, layer.y - h / 2, w, h);
-        } else {
-            await new Promise(resolve => {
-                logoImg.onload = () => {
-                    ctx.drawImage(logoImg, layer.x - w / 2, layer.y - h / 2, w, h);
-                    resolve(null);
-                };
-            });
-        }
+      } else if (layer.type === 'logo' && layer.imageData) {
+        const logoImg = new Image(); logoImg.src = layer.imageData;
+        const size = layer.fontSize * scaleFactor;
+        const aspect = logoImg.width ? logoImg.width / logoImg.height : 1.5;
+        w = size * aspect; h = size;
+        ctx.drawImage(logoImg, layer.x - w/2, layer.y - h/2, w, h);
       }
       ctx.restore();
-
-      if (layer.id === selectedLayerId && !customResult) {
-        let sizeW = 0, sizeH = 0;
-        if (layer.type === 'text') {
-          const ctx = canvasRef.current.getContext('2d')!;
-          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
-          sizeH = layer.fontSize * scaleFactor * 0.6;
-        } else if (layer.type === 'sticker') {
-          sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
-          sizeH = sizeW;
-        } else {
-          sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
-          sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
-        }
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 4 * scaleFactor;
-        ctx.setLineDash([10, 5]);
-        ctx.strokeRect(layer.x - sizeW, layer.y - sizeH, sizeW * 2, sizeH * 2);
-        ctx.setLineDash([]);
-        const handleRadius = 25 * scaleFactor;
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath(); ctx.arc(layer.x + sizeW, layer.y - sizeH, handleRadius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${15 * scaleFactor}px sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('X', layer.x + sizeW, layer.y - sizeH);
-      }
-    }
-  };
-
-  useEffect(() => {
-    renderCanvas();
-  }, [layers, selectedLayerId, customImage, customResult, view]);
-
-  const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = canvasRef.current.width / rect.width;
-    const scaleY = canvasRef.current.height / rect.height;
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = (e as React.TouchEvent).touches[0].clientX;
-      clientY = (e as React.TouchEvent).touches[0].clientY;
-    } else {
-      clientX = (e as React.MouseEvent).clientX;
-      clientY = (e as React.MouseEvent).clientY;
-    }
-    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
-  };
-
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!canvasRef.current || !customImage || customResult) return;
-    const { x, y } = getCanvasCoords(e);
-    const scaleFactor = canvasRef.current.width / 1000;
-
-    if (selectedLayerId) {
-      const layer = layers.find(l => l.id === selectedLayerId);
-      if (layer) {
-        let sizeW = 0, sizeH = 0;
-        if (layer.type === 'text') {
-          const ctx = canvasRef.current.getContext('2d')!;
-          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
-          sizeH = layer.fontSize * scaleFactor * 0.6;
-        } else if (layer.type === 'sticker') {
-          sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
-          sizeH = sizeW;
-        } else {
-          sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
-          sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
-        }
-        if (Math.sqrt((x - (layer.x + sizeW)) ** 2 + (y - (layer.y - sizeH)) ** 2) < 40 * scaleFactor) {
-          setLayers(layers.filter(l => l.id !== selectedLayerId));
-          setSelectedLayerId(null);
-          return;
-        }
+      if (layer.id === selectedLayerId) {
+        ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3 * scaleFactor; ctx.setLineDash([8, 4]);
+        const pad = 12 * scaleFactor; ctx.strokeRect(layer.x - w/2 - pad, layer.y - h/2 - pad, w + pad*2, h + pad*2);
+        ctx.restore();
       }
     }
 
-    const clickedLayer = [...layers].reverse().find(layer => {
-      let sizeW = 0, sizeH = 0;
-      if (layer.type === 'text') {
-          const ctx = canvasRef.current!.getContext('2d')!;
-          ctx.font = `bold ${layer.fontSize * scaleFactor}px "${layer.fontFamily}"`;
-          sizeW = ctx.measureText(layer.content).width / 2 + 15 * scaleFactor;
-          sizeH = layer.fontSize * scaleFactor * 0.6;
-      } else if (layer.type === 'sticker') {
-        sizeW = (layer.fontSize * scaleFactor) / 2 + 10 * scaleFactor;
-        sizeH = sizeW;
-      } else {
-        sizeW = ((layer.width || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
-        sizeH = ((layer.height || layer.fontSize) * scaleFactor) / 2 + 10 * scaleFactor;
+    if (toolMode === 'ai-eraser' && maskCanvasRef.current) {
+      ctx.drawImage(maskCanvasRef.current, 0, 0);
+    }
+  };
+
+  useEffect(() => { renderCanvas(); }, [layers, selectedLayerId, customImage, view, toolMode, brushSize]);
+
+  const downloadFinal = () => {
+    if (!canvasRef.current) return;
+    const oldId = selectedLayerId;
+    setSelectedLayerId(null); 
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const data = canvasRef.current.toDataURL('image/png');
+        downloadImage(data, 'jagohp-studio-final');
+        setSelectedLayerId(oldId);
       }
-      return x > layer.x - sizeW && x < layer.x + sizeW && y > layer.y - sizeH && y < layer.y + sizeH;
-    });
-
-    if (clickedLayer) {
-      setSelectedLayerId(clickedLayer.id);
-      setIsDraggingLayer(true);
-      dragOffset.current = { x: x - clickedLayer.x, y: y - clickedLayer.y };
-      return;
-    }
-
-    if (toolMode === 'add-text') {
-      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'text', content: "TEXT", x, y, fontSize: activeSize, fontFamily: activeFont, color: activeColor, opacity: 100 };
-      setLayers([...layers, newLayer]);
-      setSelectedLayerId(newLayer.id);
-    } else if (toolMode === 'add-sticker') {
-      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'sticker', content: STICKER_OPTIONS[1].emoji, x, y, fontSize: activeSize, color: '#000', opacity: 100 };
-      setLayers([...layers, newLayer]);
-      setSelectedLayerId(newLayer.id);
-    } else if (toolMode === 'add-shape') {
-      const newLayer: CustomLayer = { id: Math.random().toString(36).substr(2, 9), type: 'shape', content: 'rect', x, y, fontSize: activeSize, width: activeSize, height: activeSize, color: activeColor, opacity: 100 };
-      setLayers([...layers, newLayer]);
-      setSelectedLayerId(newLayer.id);
-    } else if (toolMode === 'add-logo') {
-      logoInputRef.current?.click();
-    } else {
-      setSelectedLayerId(null);
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDraggingLayer || !selectedLayerId || customResult) return;
-    const { x, y } = getCanvasCoords(e);
-    setLayers(layers.map(l => l.id === selectedLayerId ? { ...l, x: x - dragOffset.current.x, y: y - dragOffset.current.y } : l));
-  };
-
-  const handleMouseUp = () => setIsDraggingLayer(false);
-
-  const handleUpdateLayer = (updates: Partial<CustomLayer>) => {
-    if (!selectedLayerId) return;
-    setLayers(layers.map(l => l.id === selectedLayerId ? { ...l, ...updates } : l));
+    }, 100);
   };
 
   const downloadImage = (url: string, name?: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${name || 'jagohp'}-${Date.now()}.png`;
-    link.click();
+    const link = document.createElement('a'); link.href = url;
+    link.download = `${name || 'jagohp'}-${Date.now()}.png`; link.click();
   };
 
-  const selectedLayer = layers.find(l => l.id === selectedLayerId);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyStatus(id);
+      setTimeout(() => setCopyStatus(null), 1500);
+    });
+  };
 
-  const ColorControl = ({ label, currentColor, onColorChange }: { label: string, currentColor: string, onColorChange: (color: string) => void }) => (
-    <div className="space-y-2">
-      <label className="block text-[9px] font-bold text-slate-600 uppercase tracking-widest">{label}</label>
-      <div className="flex items-center gap-3">
-        <input type="color" value={currentColor} onChange={(e) => onColorChange(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent appearance-none" />
-        <input type="text" value={currentColor.toUpperCase()} onChange={(e) => onColorChange(e.target.value)} className="flex-1 bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none uppercase font-black" />
-      </div>
+  const ChevronIcon = () => (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   );
 
+  const selectedLayer = layers.find(l => l.id === selectedLayerId);
+
   return (
-    <div className="flex flex-col h-screen bg-[#020202] text-slate-200 overflow-hidden font-inter">
-      <header className="flex-none py-4 px-6 sm:px-8 border-b border-white/5 flex items-center justify-between bg-black/80 z-50 backdrop-blur-3xl">
-        <div className="flex items-center gap-4">
-          <img src="https://imgur.com/CSG8wWS.jpg" alt="Logo" className="w-10 h-10 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
+    <div className="flex flex-col min-h-screen lg:h-screen bg-[#020202] text-slate-200 overflow-x-hidden font-inter">
+      <header className="flex-none py-3 px-4 sm:py-4 sm:px-8 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between bg-black/80 z-50 backdrop-blur-3xl gap-4 sticky top-0">
+        <div className="flex items-center gap-3 sm:gap-4 self-start sm:self-auto">
+          <img src="https://imgur.com/CSG8wWS.jpg" alt="Logo" className="w-8 h-8 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
           <div className="flex flex-col">
-            <span className="text-lg sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGO-HP</span>
-            <span className="text-[8px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-1">CONTENT STUDIO</span>
+            <span className="text-base sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGO-HP</span>
+            <span className="text-[7px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-0.5 sm:mt-1">CONTENT STUDIO</span>
           </div>
         </div>
-        <button 
-          onClick={() => setView(view === 'generator' ? 'custom' : 'generator')} 
-          className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl border transition-all text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap flex-nowrap ${view === 'custom' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
-        >
-          <Icons.Tool /> <span>{view === 'custom' ? 'EXIT' : 'EDITOR TOOLS'}</span>
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={() => setShowCaptionTools(true)} className="flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500/10 transition-all whitespace-nowrap">
+            <Icons.Type /> <span className="hidden xs:inline">CAPTION TOOLS</span><span className="xs:hidden">CAPTIONS</span>
+          </button>
+          <button onClick={() => setView(view === 'generator' ? 'custom' : 'generator')} className={`flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border transition-all text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${view === 'custom' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
+            <Icons.Tool /> <span>{view === 'custom' ? 'EXIT EDITOR' : 'EDITOR TOOLS'}</span>
+          </button>
+        </div>
       </header>
 
       {view === 'generator' ? (
         <main className="flex-1 overflow-y-auto lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12 custom-scrollbar">
-          {/* ART DIRECTION SIDEBAR */}
-          <div className="lg:col-span-3 order-1 lg:order-1 border-b lg:border-b-0 lg:border-r border-white/5 bg-[#080808] p-6 lg:p-8 space-y-8">
-            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Layout /> ART DIRECTION</h2>
-            <div className="space-y-4">
-              <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="HEADLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3.5 font-bold text-white uppercase" />
-              <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="TAGLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-300" />
-              <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={2} placeholder="SOCIALS" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none" />
-              
-              <div className="pt-4 border-t border-white/5 space-y-4">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Branding Assets</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer text-[8px] font-black ${config.logoIconBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5'}`}>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
-                      {config.logoIconBase64 ? 'ICON OK' : 'ICON'}
-                    </label>
-                    <label className={`flex items-center justify-center h-12 border rounded-xl cursor-pointer text-[8px] font-black ${config.logoTextBase64 ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-[#111] border-white/5'}`}>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
-                      {config.logoTextBase64 ? 'TEXT OK' : 'TEXT'}
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Logo Position</label>
-                    <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold uppercase">{POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Title Style</label>
-                    <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-2 py-3 text-[10px] font-bold uppercase">{TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Canvas Ratio</label>
-                  <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-lg px-3 py-3 text-[10px] font-bold uppercase">{RATIO_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* VISUAL AESTHETIC & GENERATION BUTTON */}
-          <div className="lg:col-span-3 order-2 lg:order-3 border-b lg:border-b-0 lg:border-l border-white/5 bg-[#080808] p-6 lg:p-8 space-y-8 flex flex-col justify-between">
+          {/* LEFT PANEL: Messaging & Branding Assets */}
+          <div className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-white/5 bg-[#080808] p-5 lg:p-8 space-y-8 overflow-y-auto custom-scrollbar order-1">
+            
             <div className="space-y-6">
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Sparkles /> AESTHETIC</h2>
-              
-              <div>
-                <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Visual Mood</label>
-                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none">{MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}</select>
+               <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MESSAGING</h2>
+               <div className="space-y-4">
+                 <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="MAIN HEADLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 font-bold text-white uppercase outline-none focus:border-blue-500/50" />
+                 <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="SUBHEADING" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-300 outline-none focus:border-blue-500/50" />
+                 <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={3} placeholder="SOCIAL CONTEXT (IG: @username, promosi, dll)" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-blue-500/50" />
+               </div>
+            </div>
+
+            <div className="pt-6 border-t border-white/5 space-y-6">
+              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">BRANDING ASSETS</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoIconBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
+                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
+                   <span>ICON</span>
+                   {config.logoIconBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
+                </label>
+                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
+                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
+                   <span>TEXT</span>
+                   {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LOGO POSITION</h3>
+                  <div className="relative">
+                    <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-blue-500/50">
+                      {POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                    <ChevronIcon />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">TITLE STYLE</h3>
+                  <div className="relative">
+                    <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-blue-500/50">
+                      {TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                    <ChevronIcon />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-3">
-                <div onClick={() => setConfig({...config, noMockup: !config.noMockup})} className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
-                  <input type="checkbox" checked={config.noMockup} readOnly className="w-4 h-4 accent-blue-600" />
-                  <span className="text-[9px] font-black uppercase text-slate-300">Text Only</span>
-                </div>
-                <div onClick={() => setConfig({...config, backgroundOnly: !config.backgroundOnly})} className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
-                  <input type="checkbox" checked={config.backgroundOnly} readOnly className="w-4 h-4 accent-blue-600" />
-                  <span className="text-[9px] font-black uppercase text-slate-300">Background Plate</span>
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">CANVAS RATIO</h3>
+                <div className="relative">
+                  <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[10px] font-black uppercase appearance-none outline-none focus:border-blue-500/50">
+                    {RATIO_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                  <ChevronIcon />
                 </div>
               </div>
-              {!config.noMockup && !config.backgroundOnly && (
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-600 uppercase mb-2 tracking-widest">Mockup Device</label>
-                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase">{MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}</select>
-                  </div>
-                  <label className={`flex items-center justify-center h-24 border-2 border-dashed rounded-xl cursor-pointer ${config.mockupScreenshot ? 'border-blue-500/30' : 'bg-[#111] border-white/5'}`}>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                    {config.mockupScreenshot ? <img src={config.mockupScreenshot} className="w-full h-full object-cover opacity-50" /> : <Icons.Image />}
-                  </label>
-                </div>
-              )}
             </div>
-            <button onClick={() => handleGenerate(false)} disabled={isLoading} className="w-full bg-white text-black font-black py-6 rounded-2xl uppercase tracking-[0.4em] text-[12px] mt-6 shadow-2xl hover:bg-slate-200 transition-all">{isLoading ? 'RENDERING...' : 'Create Content'}</button>
           </div>
 
-          {/* OUTPUT RESULTS AREA */}
-          <div id="render-output-stage" className="lg:col-span-6 order-3 lg:order-2 bg-[#030303] overflow-y-auto custom-scrollbar p-6 lg:p-10 relative min-h-[500px]">
-            {!batch && !isLoading && <div className="h-full flex flex-col items-center justify-center opacity-10 gap-4"><Icons.Image /><p className="text-[12px] font-black uppercase tracking-[0.5em]">Awaiting Output</p></div>}
-            {isLoading && <div className="h-full flex flex-col items-center justify-center gap-10"><Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] animate-pulse">Running Neural Engine...</p></div>}
+          <div id="render-output-stage" className="lg:col-span-6 bg-[#030303] overflow-y-auto custom-scrollbar p-5 lg:p-10 relative min-h-[400px] order-3 lg:order-2 flex flex-col items-center">
+            {!batch && !isLoading && (
+              <div className="h-full w-full flex flex-col items-center justify-center opacity-20 gap-4">
+                <Icons.Image />
+                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-center">AWAITING OUTPUT</p>
+              </div>
+            )}
+            {isLoading && (
+              <div className="h-full w-full flex flex-col items-center justify-center gap-8">
+                <Icons.Loader />
+                <p className="text-[10px] font-black uppercase tracking-[0.8em] animate-pulse text-blue-500">NEURAL ENGINE PROCESSING...</p>
+              </div>
+            )}
             {batch && !isLoading && (
-              <div className="space-y-8 pb-20 animate-in fade-in duration-700">
-                <h2 className="text-lg font-black tracking-widest text-white uppercase italic border-b border-white/5 pb-4">RENDER RESULT</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="w-full space-y-10 animate-in fade-in duration-700">
+                <h2 className="text-sm font-black tracking-[0.3em] text-white uppercase italic text-center border-b border-white/10 pb-4">GENERATED BATCH</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {batch.results.map((result, idx) => (
-                    <div key={idx} className="group relative rounded-xl overflow-hidden border border-white/5 bg-black cursor-zoom-in" onClick={() => setEnlargedImage(result.imageUrl)}>
+                    <div key={idx} className="group relative rounded-2xl overflow-hidden border border-white/5 bg-black shadow-2xl">
                       <img src={result.imageUrl} className="w-full h-auto" alt={`Variant ${idx}`} />
-                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 gap-3">
-                         <button onClick={(e) => { e.stopPropagation(); downloadImage(result.imageUrl, `poster-${idx+1}`); }} className="w-full bg-white text-black py-2 rounded-lg font-black text-[10px] uppercase">Save</button>
-                         <button onClick={(e) => { e.stopPropagation(); handleStartCustomEdit(result.imageUrl); }} className="w-full bg-blue-600 text-white py-2 rounded-lg font-black text-[10px] uppercase">Editor Tools</button>
+                      <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center p-4 gap-4 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm">
+                         <button onClick={() => downloadImage(result.imageUrl, `jago-variant-${idx+1}`)} className="w-full max-w-[160px] bg-white text-black py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl">DOWNLOAD</button>
+                         <button onClick={() => handleStartCustomEdit(result.imageUrl)} className="w-full max-w-[160px] bg-blue-600 text-white py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl">REFINE TOOLS</button>
                       </div>
                     </div>
                   ))}
@@ -506,164 +539,336 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-        </main>
-      ) : (
-        /* EDITOR TOOLS VIEW */
-        <main className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 custom-scrollbar bg-[#020202]">
-          
-          {/* 1. POSTER CANVAS AREA - ALWAYS TOP ON MOBILE */}
-          <div className="lg:col-span-6 order-1 lg:order-2 bg-[#030303] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative">
-            {!customImage ? (
-              <div className="py-20 text-center opacity-20">
-                <p className="text-[10px] font-black uppercase tracking-[0.5em]">Stage Empty</p>
-              </div>
-            ) : (
-              <div className="relative border border-white/10 shadow-2xl max-w-full">
-                {customResult ? (
-                   <img src={customResult} className="max-h-[75vh] w-auto block mx-auto" alt="Result" />
-                ) : (
-                   <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} className="max-h-[75vh] max-w-full block mx-auto object-contain cursor-crosshair" />
-                )}
-                {isProcessing && (
-                   <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md">
-                     <Icons.Loader />
-                     <p className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500">Processing AI...</p>
-                   </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* 2. EDITOR FUNCTION SELECTION - BELOW CANVAS ON MOBILE */}
-          <div className="lg:col-span-3 order-2 lg:order-1 border-y lg:border-y-0 lg:border-r border-white/5 bg-[#080808] p-6 lg:p-8">
-            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2"><Icons.Tool /> EDITOR TOOLS</h2>
-            
+          <div className="lg:col-span-3 lg:border-l border-white/5 bg-[#080808] p-5 lg:p-8 space-y-8 flex flex-col overflow-y-auto custom-scrollbar order-2 lg:order-3">
             <div className="space-y-6">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-600 uppercase mb-3 tracking-widest">Select Function</label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'remove-bg', label: 'BG Remover' },
-                    { id: 'ai-eraser', label: 'Object Eraser' },
-                    { id: 'add-text', label: 'Add Text' },
-                    { id: 'add-sticker', label: 'Stickers' },
-                    { id: 'add-shape', label: 'Shapes' },
-                    { id: 'add-logo', label: 'Logo' }
-                  ].map(item => (
-                    <button key={item.id} onClick={() => { setToolMode(item.id as CustomToolMode); setSelectedLayerId(null); }} className={`p-4 rounded-xl border text-[10px] font-black uppercase text-left transition-all ${toolMode === item.id ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]'}`}>
-                      {item.label}
-                    </button>
-                  ))}
+              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">STYLE & VIBE</h2>
+              <div className="relative">
+                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl pl-4 pr-10 py-4 text-[11px] font-black uppercase outline-none appearance-none focus:border-blue-500/50">
+                  {MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}
+                </select>
+                <ChevronIcon />
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <div 
+                  onClick={() => setConfig({ ...config, noMockup: !config.noMockup })}
+                  className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-all group"
+                >
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${config.noMockup ? 'bg-white border-white' : 'border-white/20'}`}>
+                    {config.noMockup && <span className="text-black font-black text-[10px]">✓</span>}
+                  </div>
+                  <span className="text-[11px] font-black text-white uppercase tracking-widest">TEXT ONLY</span>
+                </div>
+
+                <div 
+                  onClick={() => setConfig({ ...config, backgroundOnly: !config.backgroundOnly })}
+                  className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-all group"
+                >
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${config.backgroundOnly ? 'bg-white border-white' : 'border-white/20'}`}>
+                    {config.backgroundOnly && <span className="text-black font-black text-[10px]">✓</span>}
+                  </div>
+                  <span className="text-[11px] font-black text-white uppercase tracking-widest">BACKGROUND PLATE</span>
                 </div>
               </div>
 
-              <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'custom-layer-logo')} />
+              {!config.backgroundOnly && (
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MOCKUP DEVICE</h2>
+                  <div className="relative">
+                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-blue-500/50">
+                      {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
+                    </select>
+                    <ChevronIcon />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">MOCKUP SCREEN</h3>
+                    <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-blue-500/50 bg-blue-500/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                        {config.mockupScreenshot ? (
+                          <div className="relative h-full w-full p-2">
+                            <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
+                            <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
+                          </div>
+                        ) : (
+                          <Icons.Image />
+                        )}
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-6">
+               <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.4em] text-[12px] shadow-2xl hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
+                 RUN NEURAL ENGINE
+               </button>
+            </div>
+          </div>
+        </main>
+      ) : (
+        /* EDITOR VIEW */
+        <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 overflow-y-auto custom-scrollbar bg-[#020202]">
+          <div className="order-1 lg:order-2 lg:col-span-6 bg-[#030303] flex items-center justify-center p-4 sm:p-10 relative min-h-[45vh] lg:min-h-0 overflow-hidden">
+            <div className="relative border border-white/10 shadow-2xl max-w-full">
+              <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} className="max-h-[55vh] lg:max-h-[75vh] max-w-full block mx-auto cursor-crosshair rounded-sm" />
+              {isProcessing && <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md"><Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500 animate-pulse">AI IS PROCESSING...</p></div>}
+            </div>
+          </div>
+
+          <div className="order-2 lg:order-1 lg:col-span-3 border-y lg:border-y-0 lg:border-r border-white/5 bg-[#080808] p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
+            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2 px-2"><Icons.Tool /> TOOLS</h2>
+            <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-1 gap-2 lg:gap-3">
+              {[
+                {id: 'remove-bg', icon: <Icons.Layout />, label: 'Remove BG'},
+                {id: 'ai-eraser', icon: <Icons.Sparkles />, label: 'AI Eraser'},
+                {id: 'add-text', icon: <Icons.Type />, label: 'Add Text'},
+                {id: 'add-sticker', icon: <Icons.Smile />, label: 'Stickers'},
+                {id: 'add-shape', icon: <Icons.Palette />, label: 'Shapes'},
+                {id: 'add-logo', icon: <Icons.Image />, label: 'Image Layer'},
+              ].map(tool => (
+                <button key={tool.id} onClick={() => { setToolMode(tool.id as CustomToolMode); setSelectedLayerId(null); if (tool.id !== 'ai-eraser') clearMask(); }} 
+                  className={`p-2 lg:p-4 rounded-xl border text-[8px] lg:text-[10px] font-black uppercase transition-all flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-3 ${toolMode === tool.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#111] border-white/5 text-slate-500 hover:text-white'}`}>
+                  <div className="flex-none">{tool.icon}</div>
+                  <span className="tracking-tight lg:tracking-widest text-center lg:text-left leading-none">{tool.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* PRE-SELECTION GRIDS FOR STICKERS & SHAPES */}
+            {toolMode === 'add-sticker' && (
+              <div className="pt-4 space-y-3 animate-in fade-in duration-300">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Sticker</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {STICKER_OPTIONS.map(opt => (
+                    <button key={opt.id} onClick={() => setSelectedSticker(opt.emoji)} className={`p-2 text-lg rounded-lg border transition-all ${selectedSticker === opt.emoji ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/5'}`}>{opt.emoji}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {toolMode === 'add-shape' && (
+              <div className="pt-4 space-y-3 animate-in fade-in duration-300">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Shape</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {SHAPE_OPTIONS.map(opt => (
+                    <button key={opt.id} onClick={() => setSelectedShape(opt.id)} className={`py-3 text-[10px] font-black rounded-lg border transition-all flex items-center justify-center uppercase ${selectedShape === opt.id ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 text-slate-500'}`}>{opt.label.split('/')[0]}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="order-3 lg:col-span-3 lg:border-l border-white/5 bg-[#080808] p-5 lg:p-8 flex flex-col overflow-y-visible lg:overflow-y-auto">
+            <div className="flex-1 space-y-6">
+              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Palette /> PROPERTIES</h2>
               
-              <div className="pt-6 border-t border-white/5">
-                <label className="w-full block py-5 bg-[#111] border border-white/5 rounded-xl text-center text-[10px] font-black uppercase cursor-pointer hover:bg-white/10 transition-colors">
+              {toolMode === 'ai-eraser' && (
+                <div className="space-y-4 animate-in fade-in duration-300 bg-white/5 p-4 rounded-xl border border-white/5">
+                  <label className="text-[8px] font-black uppercase tracking-widest text-blue-400 flex justify-between">Brush Size <span>{brushSize}px</span></label>
+                  <input type="range" min="10" max="150" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full h-1 bg-white/5 accent-red-500 rounded-full appearance-none cursor-pointer" />
+                  <button onClick={clearMask} className="w-full py-2 bg-white/5 border border-white/10 text-[8px] font-black uppercase rounded-lg hover:bg-red-500/10 transition-all">Reset Brush</button>
+                </div>
+              )}
+
+              {toolMode === 'remove-bg' && (
+                <div className="space-y-4 animate-in fade-in duration-300 bg-white/5 p-4 rounded-xl border border-white/5">
+                  <label className="text-[8px] font-black uppercase tracking-widest text-blue-400">Background Style</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => setRemoveBgMode('transparent')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'transparent' ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/10'}`}>Transparent</button>
+                    <button onClick={() => setRemoveBgMode('color')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'color' ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/10'}`}>Solid Color</button>
+                  </div>
+                  {removeBgMode === 'color' && (
+                    <div className="flex items-center gap-3 p-2 bg-black/40 rounded-lg">
+                      <input type="color" value={removeBgColor} onChange={(e) => setRemoveBgColor(e.target.value)} className="w-8 h-8 bg-transparent cursor-pointer rounded" />
+                      <span className="text-[10px] font-black text-white uppercase">{removeBgColor}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedLayer && (
+                <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
+                  {selectedLayer.type === 'text' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[8px] font-black uppercase text-slate-500">TEXT CONTENT</label>
+                        <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                      </div>
+                      
+                      {/* HIGHLIGHT / BACKGROUND FEATURE */}
+                      <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[9px] font-black uppercase text-blue-400">Text Highlight</label>
+                          <button 
+                            onClick={() => handleUpdateLayer({ bgActive: !selectedLayer.bgActive })}
+                            className={`w-10 h-5 rounded-full relative transition-all ${selectedLayer.bgActive ? 'bg-blue-600' : 'bg-white/10'}`}
+                          >
+                            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${selectedLayer.bgActive ? 'left-6' : 'left-1'}`}></div>
+                          </button>
+                        </div>
+                        {selectedLayer.bgActive && (
+                          <div className="space-y-4 pt-2 border-t border-white/5">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Color</span>
+                              <input type="color" value={selectedLayer.bgColor || '#000000'} onChange={(e) => handleUpdateLayer({ bgColor: e.target.value })} className="w-8 h-8 bg-transparent cursor-pointer" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Opacity</span><span>{selectedLayer.bgOpacity}%</span></div>
+                              <input type="range" min="0" max="100" value={selectedLayer.bgOpacity || 85} onChange={(e) => handleUpdateLayer({ bgOpacity: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-slate-500">Base Scale</label>
+                    <input type="range" min="10" max="800" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                  </div>
+
+                  {selectedLayer.type === 'shape' && (
+                    <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Width</span><span>{selectedLayer.width}px</span></div>
+                        <input type="range" min="10" max="1000" value={selectedLayer.width || 250} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Height</span><span>{selectedLayer.height}px</span></div>
+                        <input type="range" min="10" max="1000" value={selectedLayer.height || 100} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-slate-500">Transparency</label>
+                    <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                  </div>
+
+                  {(selectedLayer.type === 'text' || selectedLayer.type === 'shape') && (
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black uppercase text-slate-500">Layer Color</label>
+                      <div className="flex items-center gap-3 p-2 bg-[#111] rounded-lg border border-white/5">
+                        <input type="color" value={selectedLayer.color} onChange={(e) => handleUpdateLayer({ color: e.target.value })} className="w-8 h-8 bg-transparent border-none cursor-pointer" />
+                        <span className="text-[10px] font-mono text-slate-300 uppercase">{selectedLayer.color}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button onClick={handleDeleteLayer} className="w-full py-3 bg-red-600/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase rounded-xl hover:bg-red-600/20 transition-all">Delete Layer</button>
+                </div>
+              )}
+            </div>
+
+            {/* RESET CANVAS AND UPLOAD IMAGE ACTION BUTTONS */}
+            <div className="space-y-3 pt-6 lg:pt-8 mt-6 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={handleResetCanvas} 
+                  className="bg-red-600/10 border border-red-500/20 text-red-500 py-3 rounded-xl font-black text-[9px] uppercase hover:bg-red-600/20 transition-all flex items-center justify-center gap-2"
+                >
+                  Reset Canvas
+                </button>
+                <label className="bg-blue-600/10 border border-blue-500/20 text-blue-400 py-3 rounded-xl font-black text-[9px] uppercase hover:bg-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-center">
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'custom')} className="hidden" />
                   Upload Image
                 </label>
               </div>
-            </div>
-          </div>
 
-          {/* 3. PROPERTIES & ACTIONS - BOTTOM ON MOBILE */}
-          <div className="lg:col-span-3 order-3 border-t lg:border-t-0 lg:border-l border-white/5 bg-[#080808] p-6 lg:p-8 flex flex-col justify-between">
-            <div className="space-y-8 pb-10">
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Palette /> PROPERTIES</h2>
-              
-              {selectedLayer ? (
-                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                  {selectedLayer.type === 'text' && (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-slate-600 uppercase">Text Content</label>
-                        <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-4 py-4 text-sm text-white focus:border-blue-500 transition-colors outline-none" />
-                        <label className="block text-[9px] font-bold text-slate-600 uppercase mt-4">Font Family</label>
-                        <select value={selectedLayer.fontFamily} onChange={(e) => handleUpdateLayer({ fontFamily: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-3 text-[10px] font-bold uppercase">{FONT_OPTIONS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}</select>
-                      </div>
-                      <ColorControl label="Text Color" currentColor={selectedLayer.color} onColorChange={(color) => handleUpdateLayer({ color })} />
-                    </div>
-                  )}
-
-                  {selectedLayer.type === 'sticker' && (
-                    <div className="space-y-4">
-                      <label className="text-[9px] font-bold text-slate-600 uppercase">Sticker Picker</label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {STICKER_OPTIONS.map(s => (
-                          <button key={s.id} onClick={() => handleUpdateLayer({ content: s.emoji })} className={`p-4 text-2xl rounded-lg border transition-all ${selectedLayer.content === s.emoji ? 'bg-blue-600/20 border-blue-500' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>{s.emoji}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedLayer.type === 'shape' && (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-bold text-slate-600 uppercase">Shape Type</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['rect', 'circle', 'triangle'].map(type => (
-                            <button key={type} onClick={() => handleUpdateLayer({ content: type })} className={`p-3 rounded-lg border text-[8px] font-black uppercase transition-all ${selectedLayer.content === type ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/5 text-slate-500 hover:text-white'}`}>{type}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <ColorControl label="Fill Color" currentColor={selectedLayer.color} onColorChange={(color) => handleUpdateLayer({ color })} />
-                    </div>
-                  )}
-
-                  <div className="space-y-6 pt-6 border-t border-white/5">
-                    {selectedLayer.type === 'text' || selectedLayer.type === 'sticker' ? (
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Size</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.fontSize}px</span></div>
-                        <input type="range" min="10" max="800" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Width</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.width}px</span></div>
-                          <input type="range" min="10" max="1200" value={selectedLayer.width} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Height</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.height}px</span></div>
-                          <input type="range" min="10" max="1200" value={selectedLayer.height} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
-                        </div>
-                      </>
-                    )}
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center"><label className="text-[9px] font-bold text-slate-600 uppercase">Transparency</label><span className="text-[10px] font-black text-blue-500">{selectedLayer.opacity}%</span></div>
-                      <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="w-full h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-10 px-6 border border-white/5 rounded-2xl bg-white/[0.02] text-center">
-                  <p className="text-[9px] font-bold uppercase text-slate-500 tracking-wider">Select a layer on the canvas to refine its style.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-auto space-y-4 pb-10 lg:pb-0">
-              {customResult ? (
-                <div className="space-y-3">
-                  <button onClick={() => downloadImage(customResult, 'edited')} className="w-full bg-white text-black py-5 rounded-2xl font-black text-[11px] uppercase shadow-lg hover:bg-slate-200 transition-colors">Save To Storage</button>
-                  <button onClick={handleApplyAndContinue} className="w-full bg-blue-600/10 border border-blue-500/30 text-blue-400 py-5 rounded-2xl font-black text-[11px] uppercase hover:bg-blue-600/20 transition-all">Merge & Continue</button>
-                  <button onClick={() => setCustomResult(null)} className="w-full py-3 text-slate-500 font-black text-[10px] uppercase hover:text-slate-300">Discard Changes</button>
-                </div>
-              ) : (
-                <button onClick={startCustomAction} disabled={!customImage} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black text-[12px] uppercase tracking-[0.3em] shadow-xl shadow-blue-600/20 disabled:opacity-20 transition-all active:scale-95">
-                   {toolMode.includes('add') ? 'COMMIT LAYER' : 'PROCESS AI TASK'}
+              {(toolMode === 'remove-bg' || toolMode === 'ai-eraser') && (
+                <button onClick={startCustomAction} className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-[11px] uppercase shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
+                  <Icons.Sparkles /> APPLY AI ACTION
                 </button>
               )}
+              <button onClick={downloadFinal} className="w-full bg-white text-black py-4 rounded-xl font-black text-[11px] uppercase shadow-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
+                <Icons.Download /> DOWNLOAD DESIGN
+              </button>
             </div>
           </div>
         </main>
       )}
 
-      {enlargedImage && <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 sm:p-20" onClick={() => setEnlargedImage(null)}><img src={enlargedImage} className="max-w-full max-h-full rounded-xl border border-white/10 shadow-2xl cursor-zoom-out" alt="Enlarged" /></div>}
+      {showCaptionTools && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowCaptionTools(false)}></div>
+          <div className="relative w-full max-w-4xl bg-[#080808] border border-white/10 rounded-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 sm:p-10 border-b border-white/5 flex items-center justify-between bg-black/40">
+              <h3 className="text-sm sm:text-2xl font-black text-white uppercase tracking-widest italic font-orbitron">CAPTION ANALYTICS</h3>
+              <button onClick={() => setShowCaptionTools(false)} className="w-10 h-10 rounded-xl bg-white/5 text-slate-400 hover:text-white flex items-center justify-center transition-all border border-white/5">✕</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar space-y-8">
+              {/* Configuration Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Platform</label>
+                  <div className="relative">
+                    <select value={platformTarget} onChange={(e) => setPlatformTarget(e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none appearance-none cursor-pointer focus:border-blue-500/50">
+                      <option value="Instagram">Instagram</option>
+                      <option value="TikTok">TikTok</option>
+                      <option value="Facebook">Facebook</option>
+                    </select>
+                    <ChevronIcon />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Target Age</label>
+                  <input type="text" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} placeholder="e.g. 18-35" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500/50" />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Website URL</label>
+                  <input type="text" value={websiteLink} onChange={(e) => setWebsiteLink(e.target.value)} placeholder="www.jagohp.site" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500/50" />
+                </div>
+              </div>
 
-      <footer className="flex-none py-3 text-center bg-black border-t border-white/5">
-        <span className="text-[8px] sm:text-[9px] font-black text-slate-800 uppercase tracking-[0.6em] italic">JAGO-HP PRODUCTION PIPELINE v2.6.1</span>
+              <button 
+                onClick={handleGenerateCaptions} 
+                disabled={isGeneratingCaptions} 
+                className="w-full bg-white text-black py-5 rounded-2xl font-black text-[12px] uppercase tracking-[0.4em] shadow-2xl hover:bg-slate-200 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {isGeneratingCaptions ? (
+                  <><Icons.Loader /> ANALYZING...</>
+                ) : (
+                  'GENERATE MARKETING COPY'
+                )}
+              </button>
+
+              {/* Results Display */}
+              {captionResults && (
+                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
+                  <div className="space-y-6">
+                    <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] border-l-4 border-blue-600 pl-3">Short Captions & Hooks</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      {captionResults.shortCaptions.map((cap, i) => (
+                        <div key={i} className="group bg-white/5 border border-white/5 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/10 transition-all">
+                          <p className="text-sm text-slate-300 italic flex-1">"{cap}"</p>
+                          <button onClick={() => copyToClipboard(cap, `short-${i}`)} className={`w-full md:w-auto px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${copyStatus === `short-${i}` ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
+                            {copyStatus === `short-${i}` ? 'DONE ✓' : 'COPY'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] border-l-4 border-blue-600 pl-3">Viral Hashtags</h4>
+                    <div className="bg-white/5 border border-white/5 p-5 rounded-2xl flex flex-wrap gap-2">
+                      {captionResults.hashtags.map((tag, i) => (
+                        <span key={i} className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-black uppercase border border-blue-600/10">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="flex-none py-2 text-center bg-black border-t border-white/5">
+        <span className="text-[7px] sm:text-[9px] font-black text-slate-800 uppercase tracking-[0.4em] italic">JAGO-HP STUDIO v3.3.0 | PRO ENGINE v2.5</span>
       </footer>
     </div>
   );
