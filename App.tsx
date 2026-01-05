@@ -20,6 +20,7 @@ const App: React.FC = () => {
     title: "",
     tagline: "",
     marketing: "",
+    manualPrompt: "",
     mood: 'modern',
     ratio: '9:16',
     logoPosition: 'top-center',
@@ -434,7 +435,7 @@ const App: React.FC = () => {
           <img src="https://imgur.com/CSG8wWS.jpg" alt="Logo" className="w-8 h-8 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
           <div className="flex flex-col">
             <span className="text-base sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGO-HP</span>
-            <span className="text-[7px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-0.5 sm:mt-1">CONTENT STUDIO</span>
+            <span className="text-[7px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-0.5 sm:mt-1">CONTENT STUDIO V.3.3.0</span>
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -466,12 +467,12 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoIconBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
-                   <span>ICON</span>
+                   <span>ICON LOGO</span>
                    {config.logoIconBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
                 </label>
                 <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
-                   <span>TEXT</span>
+                   <span>TEXT LOGO</span>
                    {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
                 </label>
               </div>
@@ -550,59 +551,48 @@ const App: React.FC = () => {
                 <ChevronIcon />
               </div>
 
-              <div className="space-y-3 pt-4 border-t border-white/5">
-                <div 
-                  onClick={() => setConfig({ ...config, noMockup: !config.noMockup })}
-                  className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-all group"
-                >
-                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${config.noMockup ? 'bg-white border-white' : 'border-white/20'}`}>
-                    {config.noMockup && <span className="text-black font-black text-[10px]">✓</span>}
-                  </div>
-                  <span className="text-[11px] font-black text-white uppercase tracking-widest">TEXT ONLY</span>
-                </div>
-
-                <div 
-                  onClick={() => setConfig({ ...config, backgroundOnly: !config.backgroundOnly })}
-                  className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-all group"
-                >
-                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${config.backgroundOnly ? 'bg-white border-white' : 'border-white/20'}`}>
-                    {config.backgroundOnly && <span className="text-black font-black text-[10px]">✓</span>}
-                  </div>
-                  <span className="text-[11px] font-black text-white uppercase tracking-widest">BACKGROUND PLATE</span>
-                </div>
+              {/* MANUAL PROMPT SECTION REPLACED TOGGLES */}
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">MANUAL ENHANCEMENT</h2>
+                <textarea 
+                  name="manualPrompt" 
+                  value={config.manualPrompt} 
+                  onChange={handleInputChange} 
+                  rows={4} 
+                  placeholder="Add custom effects or floating elements (e.g. 'Blue neon particles', 'Cyberpunk floating cubes', 'Dramatic lens flare')..." 
+                  className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-blue-500/50" 
+                />
               </div>
 
-              {!config.backgroundOnly && (
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MOCKUP DEVICE</h2>
-                  <div className="relative">
-                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-blue-500/50">
-                      {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
-                    </select>
-                    <ChevronIcon />
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">MOCKUP SCREEN</h3>
-                    <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-blue-500/50 bg-blue-500/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                        {config.mockupScreenshot ? (
-                          <div className="relative h-full w-full p-2">
-                            <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
-                            <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
-                          </div>
-                        ) : (
-                          <Icons.Image />
-                        )}
-                    </label>
-                  </div>
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MOCKUP DEVICE</h2>
+                <div className="relative">
+                  <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-blue-500/50">
+                    {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
+                  </select>
+                  <ChevronIcon />
                 </div>
-              )}
+                
+                <div className="space-y-3">
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">MOCKUP SCREEN</h3>
+                  <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-blue-500/50 bg-blue-500/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                      {config.mockupScreenshot ? (
+                        <div className="relative h-full w-full p-2">
+                          <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
+                          <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
+                        </div>
+                      ) : (
+                        <Icons.Image />
+                      )}
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="pt-6">
                <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.4em] text-[12px] shadow-2xl hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
-                 CREATE CONTENT
+                 RUN NEURAL ENGINE
                </button>
             </div>
           </div>

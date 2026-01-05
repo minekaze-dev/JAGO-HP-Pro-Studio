@@ -29,6 +29,7 @@ export interface PosterConfig {
   title: string;
   tagline: string;
   marketing: string;
+  manualPrompt: string;
   mood: MoodType;
   ratio: AspectRatioType;
   logoIconBase64?: string;

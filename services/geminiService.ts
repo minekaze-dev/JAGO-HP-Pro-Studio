@@ -143,7 +143,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
   const copy = await generateCopy(config, variationIndex);
 
   if (config.backgroundOnly) {
-    const prompt = `Studio background photography. MOOD: ${MOOD_PROMPT_MAP[config.mood]}. Empty professional space, cinematic depth, no devices, no text.`;
+    const prompt = `Studio background photography. MOOD: ${MOOD_PROMPT_MAP[config.mood]}. Empty professional space, cinematic depth, no devices, no text. ${config.manualPrompt ? "ADDITIONAL VISUAL DETAILS: " + config.manualPrompt : ""}`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: [{ text: prompt }],
@@ -189,6 +189,7 @@ Target Hardware: ${config.noMockup ? "None (product-less background)" : deviceDe
 Aesthetic: ${moodDesc}.
 Text Hierarchy: ${textInstruction}
 ${brandingInstruction}
+${config.manualPrompt ? "- CUSTOM ENHANCEMENTS: " + config.manualPrompt : ""}
 
 COMPOSITION RULES:
 ${config.mockupScreenshot ? `- SCREEN MAPPING: Use the provided screenshot image context. Map it perfectly onto the display of the ${config.mockupType}.` : `- SCREEN CONTENT: Generate a sleek high-tech UI matching the ${config.mood} theme.`}
