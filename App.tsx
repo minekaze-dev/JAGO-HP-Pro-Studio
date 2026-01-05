@@ -602,7 +602,7 @@ const App: React.FC = () => {
 
             <div className="pt-6">
                <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.4em] text-[12px] shadow-2xl hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
-                 RUN NEURAL ENGINE
+                 CREATE CONTENT
                </button>
             </div>
           </div>
