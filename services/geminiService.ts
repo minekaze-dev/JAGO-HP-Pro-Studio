@@ -28,6 +28,7 @@ const DEVICE_DESC_MAP = {
   truck: "a massive heavy-duty black transport semi-truck with a clean #ffcc00 yellow corporate branding wrap on its side trailer",
 };
 
+// Always extract search grounding URLs if googleSearch is used as required by guidelines.
 export const generateMarketingCaptions = async (ageRange: string, website: string, platform: string): Promise<CaptionToolsResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -71,7 +72,16 @@ export const generateMarketingCaptions = async (ageRange: string, website: strin
       }
     });
 
-    return JSON.parse(response.text || "{}");
+    const result = JSON.parse(response.text || "{}");
+    
+    // Extracting URLs from groundingChunks as required by guidelines
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const sources = groundingChunks?.map((chunk: any) => ({
+      title: chunk.web?.title || chunk.web?.uri,
+      uri: chunk.web?.uri
+    })).filter((s: any) => s.uri);
+
+    return { ...result, sources };
   } catch (err: any) {
     throw new Error("Gagal menghasilkan caption.");
   }
@@ -150,7 +160,7 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
     const prompt = `Elite Studio Tech Environment: Dark Black and #ffcc00 Yellow theme. ${MOOD_PROMPT_MAP[config.mood]}. Empty professional gallery space, cinematic atmospheric perspective, macro textures, no devices, no text. ${config.manualPrompt ? "ADDITIONAL STYLING: " + config.manualPrompt : ""}`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: [{ text: prompt }],
+      contents: prompt,
       config: { imageConfig: { aspectRatio: config.ratio } }
     });
     let imageUrl = '';
@@ -174,9 +184,12 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
     ? `- Headline: "${config.title}" (${titleSizeDesc}).\n- Sub-Headline: "${config.tagline}" (Color: white or soft #ffcc00, minimal font).`
     : "- VISUAL ONLY: No text elements, focus on pure #ffcc00 yellow light and obsidian black shapes.";
 
-  const brandingInstruction = (config.logoIconBase64 || config.logoTextBase64)
-    ? `- BRANDING: Place user-provided logo assets as a decal or logo placement at ${config.logoPosition}. Apply a subtle #ffcc00 yellow aura and premium finish.`
-    : "- BRANDING: Keep clean, use abstract black/yellow tech patterns only.";
+  // Fix: Removed incorrect assignment to brandingInstruction which was causing an error.
+  const heroInstruction = config.subjectImageBase64
+    ? `HERO SUBJECT: Use the provided product/subject image as the centerpiece of the poster. Integrate it into the 3D environment. Apply sharp #ffcc00 yellow rim-lights and cinematic obsidian reflections to its surface so it matches the JAGO-HP brand aesthetic perfectly. Remove its original background if necessary.`
+    : config.logoTextBase64
+      ? `- BRANDING: Place user-provided logo text at ${config.logoPosition}. Apply a subtle #ffcc00 yellow aura.`
+      : "- BRANDING: Keep clean, use abstract black/yellow tech patterns only.";
 
   const screenshotInstruction = config.mockupScreenshot 
     ? `CRITICAL DISPLAY MAPPING: You MUST embed the user-provided screenshot image precisely onto the surface of the ${config.mockupType} (as a screen content for tech, or a high-quality side-wrap/decal for vehicles). It must be perfectly warped to fit the perspective. The screenshot should appear as a professional high-resolution graphic.`
@@ -184,23 +197,22 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
 
   let mainPrompt = `JAGO-HP PREMIUM ADVERTISING POSTER:
 BRAND DNA: Deep Obsidian Black and Vibrant #ffcc00 Yellow.
-MOCKUP PLATFORM: ${config.noMockup ? "No hardware" : deviceDesc}.
+${config.subjectImageBase64 ? "HERO MODE: CENTERED PRODUCT ADVERTISING." : "MOCKUP PLATFORM: " + (config.noMockup ? "No hardware" : deviceDesc)}
+${heroInstruction}
 ${screenshotInstruction}
 MOOD STYLE: ${moodDesc}.
 TYPOGRAPHY: ${textInstruction}
-${brandingInstruction}
 ${config.manualPrompt ? "- USER ENHANCEMENT: " + config.manualPrompt : ""}
 
 TECHNICAL SPECIFICATIONS:
-- Lighting: Global illumination, volumetric yellow rays, cinematic shadows, vehicle-quality gloss reflections.
-- Composition: Dynamic 3D perspective, balanced weight, automotive or tech studio quality.
+- Lighting: Global illumination, volumetric yellow rays, cinematic shadows, high-end gloss reflections.
+- Composition: Dynamic 3D perspective, balanced weight, professional advertising studio quality.
 - Ratio: ${config.ratio}.
-- Priority: Screenshot/Ad Graphic must be clearly visible on the mockup if provided. 
-- Total Theme: Dark Elite Branding.`;
+- Theme: Dark Elite JAGO-HP Branding.`;
 
   const parts: any[] = [{ text: mainPrompt }];
   
-  if (config.logoIconBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoIconBase64.split(',')[1] } });
+  if (config.subjectImageBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.subjectImageBase64.split(',')[1] } });
   if (config.logoTextBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
   if (config.mockupScreenshot) parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
 

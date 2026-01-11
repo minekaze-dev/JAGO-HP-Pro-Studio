@@ -32,7 +32,7 @@ export interface PosterConfig {
   manualPrompt: string;
   mood: MoodType;
   ratio: AspectRatioType;
-  logoIconBase64?: string;
+  subjectImageBase64?: string;
   logoTextBase64?: string;
   mockupScreenshot?: string;
   mockupType: MockupDeviceType;
@@ -58,4 +58,5 @@ export interface CaptionToolsResult {
   shortCaptions: string[];
   longCaptions: string[];
   hashtags: string[];
+  sources?: { title: string; uri: string }[];
 }

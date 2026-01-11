@@ -254,13 +254,13 @@ const App: React.FC = () => {
     renderCanvas();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'icon' | 'text' | 'mockup' | 'custom') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'subject' | 'text' | 'mockup' | 'custom') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        if (type === 'icon') setConfig(prev => ({ ...prev, logoIconBase64: base64 }));
+        if (type === 'subject') setConfig(prev => ({ ...prev, subjectImageBase64: base64 }));
         else if (type === 'text') setConfig(prev => ({ ...prev, logoTextBase64: base64 }));
         else if (type === 'mockup') setConfig(prev => ({ ...prev, mockupScreenshot: base64 }));
         else if (type === 'custom') handleStartCustomEdit(base64);
@@ -464,22 +464,26 @@ const App: React.FC = () => {
 
             <div className="pt-6 border-t border-white/5 space-y-6">
               <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">BRANDING ASSETS</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoIconBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
-                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
-                   <span>ICON LOGO</span>
-                   {config.logoIconBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
+              <div className="grid grid-cols-1 gap-3">
+                <label className={`flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-2xl cursor-pointer text-[10px] font-black tracking-widest transition-all ${config.subjectImageBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black shadow-[0_0_20px_rgba(255,204,0,0.3)]' : 'bg-[#111] border-white/10 hover:border-[#ffcc00]/40 text-slate-400'}`}>
+                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'subject')} className="hidden" />
+                   <div className="flex flex-col items-center gap-2">
+                     <Icons.Image />
+                     <span>UPLOAD PRODUCT PHOTO</span>
+                   </div>
+                   {config.subjectImageBase64 && <span className="mt-2 text-[8px] bg-black/10 px-2 py-0.5 rounded uppercase font-bold">READY TO STYLIZE ✓</span>}
                 </label>
+                
                 <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
-                   <span>TEXT LOGO</span>
+                   <span>TEXT LOGO OVERLAY</span>
                    {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
                 </label>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LOGO POSITION</h3>
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">TEXT POSITION</h3>
                   <div className="relative">
                     <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-[#ffcc00]/50">
                       {POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -488,7 +492,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">TITLE STYLE</h3>
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">TITLE SIZE</h3>
                   <div className="relative">
                     <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-[#ffcc00]/50">
                       {TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -551,7 +555,6 @@ const App: React.FC = () => {
                 <ChevronIcon />
               </div>
 
-              {/* MANUAL PROMPT SECTION REPLACED TOGGLES */}
               <div className="space-y-4 pt-4 border-t border-white/5">
                 <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">MANUAL ENHANCEMENT</h2>
                 <textarea 
@@ -564,30 +567,32 @@ const App: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em]">MOCKUP TEMPLATE</h2>
-                <div className="relative">
-                  <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-[#ffcc00]/50">
-                    {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
-                  </select>
-                  <ChevronIcon />
+              {!config.subjectImageBase64 && (
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em]">MOCKUP TEMPLATE</h2>
+                  <div className="relative">
+                    <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-[#ffcc00]/50">
+                      {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
+                    </select>
+                    <ChevronIcon />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">SCREEN CONTENT</h3>
+                    <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-[#ffcc00]/50 bg-[#ffcc00]/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                        {config.mockupScreenshot ? (
+                          <div className="relative h-full w-full p-2">
+                            <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
+                            <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
+                          </div>
+                        ) : (
+                          <Icons.Image />
+                        )}
+                    </label>
+                  </div>
                 </div>
-                
-                <div className="space-y-3">
-                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">SCREEN CONTENT</h3>
-                  <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-[#ffcc00]/50 bg-[#ffcc00]/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                      {config.mockupScreenshot ? (
-                        <div className="relative h-full w-full p-2">
-                          <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
-                          <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
-                        </div>
-                      ) : (
-                        <Icons.Image />
-                      )}
-                  </label>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="pt-6">
@@ -850,6 +855,27 @@ const App: React.FC = () => {
                       ))}
                     </div>
                   </div>
+
+                  {/* Displaying verified sources from Google Search grounding as required by guidelines. */}
+                  {captionResults.sources && captionResults.sources.length > 0 && (
+                    <div className="space-y-6">
+                      <h4 className="text-[11px] font-black text-[#ffcc00] uppercase tracking-[0.3em] border-l-4 border-[#ffcc00] pl-3">Verified Sources</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {captionResults.sources.map((source, i) => (
+                          <a 
+                            key={i} 
+                            href={source.uri} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all"
+                          >
+                            <span className="text-[10px] font-bold text-slate-300 uppercase truncate pr-4">{source.title}</span>
+                            <span className="text-[10px] text-[#ffcc00]">↗</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
