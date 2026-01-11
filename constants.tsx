@@ -3,12 +3,12 @@ import React from 'react';
 import { MoodType, AspectRatioType, PositionType, TitleSizeType, MockupDeviceType } from './types';
 
 export const MOOD_OPTIONS: { value: MoodType; label: string; description: string }[] = [
-  { value: 'modern', label: 'Modern Minimal', description: 'Clean tech layout, neutral background' },
-  { value: 'dark', label: 'Dark Premium', description: 'Cinematic lighting, black/navy background' },
-  { value: 'fresh', label: 'Fresh & Energetic', description: 'Vibrant colors, youthful composition' },
-  { value: 'corporate', label: 'Corporate Pro', description: 'Structured and blue-gray palette' },
-  { value: 'creative', label: 'Creative Artistic', description: 'Abstract shapes, bold typography' },
-  { value: 'lifestyle', label: 'Natural Lifestyle', description: 'Warm lighting, everyday usage' },
+  { value: 'modern', label: 'MODERN MINIMAL', description: 'Architectural clean tech, soft shadows, pristine obsidian surfaces' },
+  { value: 'dark', label: 'DARK PREMIUM', description: 'Stealth luxury, ray-traced yellow reflections, high-contrast obsidian' },
+  { value: 'fresh', label: 'FRESH & ENERGETIC', description: 'Kinetic tech, liquid splashes, dynamic motion-blurred yellow particles' },
+  { value: 'corporate', label: 'CORPORATE PRO', description: 'Structured blueprints, industrial charcoal texture, precise grid-work' },
+  { value: 'creative', label: 'CREATIVE GLITCH', description: 'Cyberpunk glitch art, holographic yellow flares, abstract digital void' },
+  { value: 'lifestyle', label: 'ELITE LIFESTYLE', description: 'Boutique tech-setup, atmospheric yellow haze, premium black textures' },
 ];
 
 export const MOCKUP_DEVICE_OPTIONS: { value: MockupDeviceType; label: string }[] = [
@@ -16,6 +16,8 @@ export const MOCKUP_DEVICE_OPTIONS: { value: MockupDeviceType; label: string }[]
   { value: 'laptop', label: 'Laptop' },
   { value: 'pc', label: 'Desktop PC' },
   { value: 'videotron', label: 'Videotron / Billboard' },
+  { value: 'car', label: 'Sports Car (Sponsor Wrap)' },
+  { value: 'truck', label: 'Logistics Truck (Sponsor Wrap)' },
 ];
 
 export const RATIO_OPTIONS: { value: AspectRatioType; label: string }[] = [

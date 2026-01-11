@@ -382,7 +382,7 @@ const App: React.FC = () => {
       }
       ctx.restore();
       if (layer.id === selectedLayerId) {
-        ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3 * scaleFactor; ctx.setLineDash([8, 4]);
+        ctx.save(); ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 3 * scaleFactor; ctx.setLineDash([8, 4]);
         const pad = 12 * scaleFactor; ctx.strokeRect(layer.x - w/2 - pad, layer.y - h/2 - pad, w + pad*2, h + pad*2);
         ctx.restore();
       }
@@ -432,17 +432,17 @@ const App: React.FC = () => {
     <div className="flex flex-col min-h-screen lg:h-screen bg-[#020202] text-slate-200 overflow-x-hidden font-inter">
       <header className="flex-none py-3 px-4 sm:py-4 sm:px-8 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between bg-black/80 z-50 backdrop-blur-3xl gap-4 sticky top-0">
         <div className="flex items-center gap-3 sm:gap-4 self-start sm:self-auto">
-          <img src="https://imgur.com/CSG8wWS.jpg" alt="Logo" className="w-8 h-8 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
+          <img src="https://imgur.com/bYSeLQD.jpg" alt="Logo" className="w-8 h-8 sm:w-14 sm:h-14 object-cover rounded-lg shadow-lg border border-white/10" />
           <div className="flex flex-col">
-            <span className="text-base sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGO-HP</span>
-            <span className="text-[7px] sm:text-[9px] font-bold text-blue-500 tracking-[0.3em] uppercase mt-0.5 sm:mt-1">CONTENT STUDIO V.3.3.0</span>
+            <span className="text-base sm:text-2xl font-black tracking-widest text-white uppercase italic font-orbitron leading-none">JAGOHP</span>
+            <span className="text-[7px] sm:text-[9px] font-bold text-[#ffcc00] tracking-[0.3em] uppercase mt-0.5 sm:mt-1">CONTENT STUDIO</span>
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button onClick={() => setShowCaptionTools(true)} className="flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-500/10 transition-all whitespace-nowrap">
+          <button onClick={() => setShowCaptionTools(true)} className="flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border border-[#ffcc00]/20 bg-[#ffcc00]/5 text-[#ffcc00] text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#ffcc00]/10 transition-all whitespace-nowrap">
             <Icons.Type /> <span className="hidden xs:inline">CAPTION TOOLS</span><span className="xs:hidden">CAPTIONS</span>
           </button>
-          <button onClick={() => setView(view === 'generator' ? 'custom' : 'generator')} className={`flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border transition-all text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${view === 'custom' ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
+          <button onClick={() => setView(view === 'generator' ? 'custom' : 'generator')} className={`flex-1 sm:flex-none px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl border transition-all text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${view === 'custom' ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>
             <Icons.Tool /> <span>{view === 'custom' ? 'EXIT EDITOR' : 'EDITOR TOOLS'}</span>
           </button>
         </div>
@@ -454,23 +454,23 @@ const App: React.FC = () => {
           <div className="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-white/5 bg-[#080808] p-5 lg:p-8 space-y-8 overflow-y-auto custom-scrollbar order-1">
             
             <div className="space-y-6">
-               <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MESSAGING</h2>
+               <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em]">MESSAGING</h2>
                <div className="space-y-4">
-                 <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="MAIN HEADLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 font-bold text-white uppercase outline-none focus:border-blue-500/50" />
-                 <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="SUBHEADING" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-300 outline-none focus:border-blue-500/50" />
-                 <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={3} placeholder="SOCIAL CONTEXT (IG: @username, promosi, dll)" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-blue-500/50" />
+                 <input type="text" name="title" value={config.title} onChange={handleInputChange} placeholder="MAIN HEADLINE" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 font-bold text-white uppercase outline-none focus:border-[#ffcc00]/50" />
+                 <input type="text" name="tagline" value={config.tagline} onChange={handleInputChange} placeholder="SUBHEADING" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-300 outline-none focus:border-[#ffcc00]/50" />
+                 <textarea name="marketing" value={config.marketing} onChange={handleInputChange} rows={3} placeholder="SOCIAL CONTEXT (IG: @username, promosi, dll)" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-[#ffcc00]/50" />
                </div>
             </div>
 
             <div className="pt-6 border-t border-white/5 space-y-6">
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">BRANDING ASSETS</h2>
+              <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">BRANDING ASSETS</h2>
               <div className="grid grid-cols-2 gap-3">
-                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoIconBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
+                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoIconBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'icon')} className="hidden" />
                    <span>ICON LOGO</span>
                    {config.logoIconBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
                 </label>
-                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 hover:border-blue-500/40'}`}>
+                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
                    <span>TEXT LOGO</span>
                    {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
@@ -481,7 +481,7 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LOGO POSITION</h3>
                   <div className="relative">
-                    <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-blue-500/50">
+                    <select value={config.logoPosition} onChange={(e) => handleSelectChange('logoPosition', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-[#ffcc00]/50">
                       {POSITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                     <ChevronIcon />
@@ -490,7 +490,7 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">TITLE STYLE</h3>
                   <div className="relative">
-                    <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-blue-500/50">
+                    <select value={config.titleSize} onChange={(e) => handleSelectChange('titleSize', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none outline-none focus:border-[#ffcc00]/50">
                       {TITLE_SIZE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                     <ChevronIcon />
@@ -501,7 +501,7 @@ const App: React.FC = () => {
               <div className="space-y-3">
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">CANVAS RATIO</h3>
                 <div className="relative">
-                  <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[10px] font-black uppercase appearance-none outline-none focus:border-blue-500/50">
+                  <select value={config.ratio} onChange={(e) => handleSelectChange('ratio', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-4 text-[10px] font-black uppercase appearance-none outline-none focus:border-[#ffcc00]/50">
                     {RATIO_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                   </select>
                   <ChevronIcon />
@@ -520,7 +520,7 @@ const App: React.FC = () => {
             {isLoading && (
               <div className="h-full w-full flex flex-col items-center justify-center gap-8">
                 <Icons.Loader />
-                <p className="text-[10px] font-black uppercase tracking-[0.8em] animate-pulse text-blue-500">NEURAL ENGINE PROCESSING...</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.8em] animate-pulse text-[#ffcc00]">NEURAL ENGINE PROCESSING...</p>
               </div>
             )}
             {batch && !isLoading && (
@@ -532,7 +532,7 @@ const App: React.FC = () => {
                       <img src={result.imageUrl} className="w-full h-auto" alt={`Variant ${idx}`} />
                       <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center p-4 gap-4 opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm">
                          <button onClick={() => downloadImage(result.imageUrl, `jago-variant-${idx+1}`)} className="w-full max-w-[160px] bg-white text-black py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl">DOWNLOAD</button>
-                         <button onClick={() => handleStartCustomEdit(result.imageUrl)} className="w-full max-w-[160px] bg-blue-600 text-white py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl">REFINE TOOLS</button>
+                         <button onClick={() => handleStartCustomEdit(result.imageUrl)} className="w-full max-w-[160px] bg-[#ffcc00] text-black py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl">REFINE TOOLS</button>
                       </div>
                     </div>
                   ))}
@@ -543,9 +543,9 @@ const App: React.FC = () => {
 
           <div className="lg:col-span-3 lg:border-l border-white/5 bg-[#080808] p-5 lg:p-8 space-y-8 flex flex-col overflow-y-auto custom-scrollbar order-2 lg:order-3">
             <div className="space-y-6">
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">STYLE & VIBE</h2>
+              <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">STYLE & VIBE</h2>
               <div className="relative">
-                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl pl-4 pr-10 py-4 text-[11px] font-black uppercase outline-none appearance-none focus:border-blue-500/50">
+                <select value={config.mood} onChange={(e) => handleSelectChange('mood', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl pl-4 pr-10 py-4 text-[11px] font-black uppercase outline-none appearance-none focus:border-[#ffcc00]/50">
                   {MOOD_OPTIONS.map(mood => <option key={mood.value} value={mood.value}>{mood.label}</option>)}
                 </select>
                 <ChevronIcon />
@@ -553,29 +553,29 @@ const App: React.FC = () => {
 
               {/* MANUAL PROMPT SECTION REPLACED TOGGLES */}
               <div className="space-y-4 pt-4 border-t border-white/5">
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">MANUAL ENHANCEMENT</h2>
+                <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">MANUAL ENHANCEMENT</h2>
                 <textarea 
                   name="manualPrompt" 
                   value={config.manualPrompt} 
                   onChange={handleInputChange} 
                   rows={4} 
                   placeholder="Add custom effects or floating elements (e.g. 'Blue neon particles', 'Cyberpunk floating cubes', 'Dramatic lens flare')..." 
-                  className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-blue-500/50" 
+                  className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs text-slate-400 resize-none outline-none focus:border-[#ffcc00]/50" 
                 />
               </div>
 
               <div className="space-y-4 pt-4 border-t border-white/5">
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">MOCKUP DEVICE</h2>
+                <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em]">MOCKUP TEMPLATE</h2>
                 <div className="relative">
-                  <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-blue-500/50">
+                  <select value={config.mockupType} onChange={(e) => handleSelectChange('mockupType', e.target.value)} className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold uppercase appearance-none focus:border-[#ffcc00]/50">
                     {MOCKUP_DEVICE_OPTIONS.map(device => <option key={device.value} value={device.value}>{device.label}</option>)}
                   </select>
                   <ChevronIcon />
                 </div>
                 
                 <div className="space-y-3">
-                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">MOCKUP SCREEN</h3>
-                  <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-blue-500/50 bg-blue-500/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
+                  <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">SCREEN CONTENT</h3>
+                  <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-[#ffcc00]/50 bg-[#ffcc00]/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
                       <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
                       {config.mockupScreenshot ? (
                         <div className="relative h-full w-full p-2">
@@ -591,8 +591,8 @@ const App: React.FC = () => {
             </div>
 
             <div className="pt-6">
-               <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.4em] text-[12px] shadow-2xl hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
-                 RUN NEURAL ENGINE
+               <button onClick={handleGenerate} disabled={isLoading} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.4em] text-[12px] shadow-2xl hover:bg-[#ffcc00]/10 transition-all flex items-center justify-center gap-3">
+                 RUN ENGINE
                </button>
             </div>
           </div>
@@ -603,12 +603,12 @@ const App: React.FC = () => {
           <div className="order-1 lg:order-2 lg:col-span-6 bg-[#030303] flex items-center justify-center p-4 sm:p-10 relative min-h-[45vh] lg:min-h-0 overflow-hidden">
             <div className="relative border border-white/10 shadow-2xl max-w-full">
               <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp} className="max-h-[55vh] lg:max-h-[75vh] max-w-full block mx-auto cursor-crosshair rounded-sm" />
-              {isProcessing && <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md"><Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] text-blue-500 animate-pulse">AI IS PROCESSING...</p></div>}
+              {isProcessing && <div className="absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-md"><Icons.Loader /><p className="text-[10px] font-black uppercase tracking-[0.8em] text-[#ffcc00] animate-pulse">AI IS PROCESSING...</p></div>}
             </div>
           </div>
 
           <div className="order-2 lg:order-1 lg:col-span-3 border-y lg:border-y-0 lg:border-r border-white/5 bg-[#080808] p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
-            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2 px-2"><Icons.Tool /> TOOLS</h2>
+            <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2 px-2"><Icons.Tool /> TOOLS</h2>
             <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-1 gap-2 lg:gap-3">
               {[
                 {id: 'remove-bg', icon: <Icons.Layout />, label: 'Remove BG'},
@@ -619,7 +619,7 @@ const App: React.FC = () => {
                 {id: 'add-logo', icon: <Icons.Image />, label: 'Image Layer'},
               ].map(tool => (
                 <button key={tool.id} onClick={() => { setToolMode(tool.id as CustomToolMode); setSelectedLayerId(null); if (tool.id !== 'ai-eraser') clearMask(); }} 
-                  className={`p-2 lg:p-4 rounded-xl border text-[8px] lg:text-[10px] font-black uppercase transition-all flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-3 ${toolMode === tool.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#111] border-white/5 text-slate-500 hover:text-white'}`}>
+                  className={`p-2 lg:p-4 rounded-xl border text-[8px] lg:text-[10px] font-black uppercase transition-all flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-3 ${toolMode === tool.id ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 text-slate-500 hover:text-white'}`}>
                   <div className="flex-none">{tool.icon}</div>
                   <span className="tracking-tight lg:tracking-widest text-center lg:text-left leading-none">{tool.label}</span>
                 </button>
@@ -632,7 +632,7 @@ const App: React.FC = () => {
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Sticker</h3>
                 <div className="grid grid-cols-4 gap-2">
                   {STICKER_OPTIONS.map(opt => (
-                    <button key={opt.id} onClick={() => setSelectedSticker(opt.emoji)} className={`p-2 text-lg rounded-lg border transition-all ${selectedSticker === opt.emoji ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/5'}`}>{opt.emoji}</button>
+                    <button key={opt.id} onClick={() => setSelectedSticker(opt.emoji)} className={`p-2 text-lg rounded-lg border transition-all ${selectedSticker === opt.emoji ? 'bg-[#ffcc00] border-[#ffcc00]' : 'bg-[#111] border-white/5'}`}>{opt.emoji}</button>
                   ))}
                 </div>
               </div>
@@ -643,7 +643,7 @@ const App: React.FC = () => {
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Shape</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {SHAPE_OPTIONS.map(opt => (
-                    <button key={opt.id} onClick={() => setSelectedShape(opt.id)} className={`py-3 text-[10px] font-black rounded-lg border transition-all flex items-center justify-center uppercase ${selectedShape === opt.id ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#111] border-white/5 text-slate-500'}`}>{opt.label.split('/')[0]}</button>
+                    <button key={opt.id} onClick={() => setSelectedShape(opt.id)} className={`py-3 text-[10px] font-black rounded-lg border transition-all flex items-center justify-center uppercase ${selectedShape === opt.id ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 text-slate-500'}`}>{opt.label.split('/')[0]}</button>
                   ))}
                 </div>
               </div>
@@ -652,11 +652,11 @@ const App: React.FC = () => {
           
           <div className="order-3 lg:col-span-3 lg:border-l border-white/5 bg-[#080808] p-5 lg:p-8 flex flex-col overflow-y-visible lg:overflow-y-auto">
             <div className="flex-1 space-y-6">
-              <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Palette /> PROPERTIES</h2>
+              <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2"><Icons.Palette /> PROPERTIES</h2>
               
               {toolMode === 'ai-eraser' && (
                 <div className="space-y-4 animate-in fade-in duration-300 bg-white/5 p-4 rounded-xl border border-white/5">
-                  <label className="text-[8px] font-black uppercase tracking-widest text-blue-400 flex justify-between">Brush Size <span>{brushSize}px</span></label>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-[#ffcc00] flex justify-between">Brush Size <span>{brushSize}px</span></label>
                   <input type="range" min="10" max="150" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full h-1 bg-white/5 accent-red-500 rounded-full appearance-none cursor-pointer" />
                   <button onClick={clearMask} className="w-full py-2 bg-white/5 border border-white/10 text-[8px] font-black uppercase rounded-lg hover:bg-red-500/10 transition-all">Reset Brush</button>
                 </div>
@@ -664,10 +664,10 @@ const App: React.FC = () => {
 
               {toolMode === 'remove-bg' && (
                 <div className="space-y-4 animate-in fade-in duration-300 bg-white/5 p-4 rounded-xl border border-white/5">
-                  <label className="text-[8px] font-black uppercase tracking-widest text-blue-400">Background Style</label>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-[#ffcc00]">Background Style</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setRemoveBgMode('transparent')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'transparent' ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/10'}`}>Transparent</button>
-                    <button onClick={() => setRemoveBgMode('color')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'color' ? 'bg-blue-600 border-blue-400' : 'bg-[#111] border-white/10'}`}>Solid Color</button>
+                    <button onClick={() => setRemoveBgMode('transparent')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'transparent' ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/10'}`}>Transparent</button>
+                    <button onClick={() => setRemoveBgMode('color')} className={`py-2 text-[8px] font-black rounded-lg border transition-all ${removeBgMode === 'color' ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/10'}`}>Solid Color</button>
                   </div>
                   {removeBgMode === 'color' && (
                     <div className="flex items-center gap-3 p-2 bg-black/40 rounded-lg">
@@ -684,16 +684,16 @@ const App: React.FC = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <label className="text-[8px] font-black uppercase text-slate-500">TEXT CONTENT</label>
-                        <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500" />
+                        <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#ffcc00]" />
                       </div>
                       
                       {/* HIGHLIGHT / BACKGROUND FEATURE */}
                       <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[9px] font-black uppercase text-blue-400">Text Highlight</label>
+                          <label className="text-[9px] font-black uppercase text-[#ffcc00]">Text Highlight</label>
                           <button 
                             onClick={() => handleUpdateLayer({ bgActive: !selectedLayer.bgActive })}
-                            className={`w-10 h-5 rounded-full relative transition-all ${selectedLayer.bgActive ? 'bg-blue-600' : 'bg-white/10'}`}
+                            className={`w-10 h-5 rounded-full relative transition-all ${selectedLayer.bgActive ? 'bg-[#ffcc00]' : 'bg-white/10'}`}
                           >
                             <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${selectedLayer.bgActive ? 'left-6' : 'left-1'}`}></div>
                           </button>
@@ -706,7 +706,7 @@ const App: React.FC = () => {
                             </div>
                             <div className="space-y-1">
                               <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Opacity</span><span>{selectedLayer.bgOpacity}%</span></div>
-                              <input type="range" min="0" max="100" value={selectedLayer.bgOpacity || 85} onChange={(e) => handleUpdateLayer({ bgOpacity: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                              <input type="range" min="0" max="100" value={selectedLayer.bgOpacity || 85} onChange={(e) => handleUpdateLayer({ bgOpacity: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-[#ffcc00] appearance-none rounded-full cursor-pointer" />
                             </div>
                           </div>
                         )}
@@ -716,25 +716,25 @@ const App: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="text-[8px] font-black uppercase text-slate-500">Base Scale</label>
-                    <input type="range" min="10" max="800" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                    <input type="range" min="10" max="800" value={selectedLayer.fontSize} onChange={(e) => handleUpdateLayer({ fontSize: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-[#ffcc00] rounded-full appearance-none cursor-pointer" />
                   </div>
 
                   {selectedLayer.type === 'shape' && (
                     <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
                       <div className="space-y-2">
                         <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Width</span><span>{selectedLayer.width}px</span></div>
-                        <input type="range" min="10" max="1000" value={selectedLayer.width || 250} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                        <input type="range" min="10" max="1000" value={selectedLayer.width || 250} onChange={(e) => handleUpdateLayer({ width: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-[#ffcc00] appearance-none rounded-full cursor-pointer" />
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase"><span>Height</span><span>{selectedLayer.height}px</span></div>
-                        <input type="range" min="10" max="1000" value={selectedLayer.height || 100} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-blue-600 appearance-none rounded-full cursor-pointer" />
+                        <input type="range" min="10" max="1000" value={selectedLayer.height || 100} onChange={(e) => handleUpdateLayer({ height: parseInt(e.target.value) })} className="w-full h-1 bg-white/10 accent-[#ffcc00] appearance-none rounded-full cursor-pointer" />
                       </div>
                     </div>
                   )}
 
                   <div className="space-y-2">
                     <label className="text-[8px] font-black uppercase text-slate-500">Transparency</label>
-                    <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-blue-600 rounded-full appearance-none cursor-pointer" />
+                    <input type="range" min="0" max="100" value={selectedLayer.opacity} onChange={(e) => handleUpdateLayer({ opacity: parseInt(e.target.value) })} className="flex-1 h-1 bg-white/5 accent-[#ffcc00] rounded-full appearance-none cursor-pointer" />
                   </div>
 
                   {(selectedLayer.type === 'text' || selectedLayer.type === 'shape') && (
@@ -761,14 +761,14 @@ const App: React.FC = () => {
                 >
                   Reset Canvas
                 </button>
-                <label className="bg-blue-600/10 border border-blue-500/20 text-blue-400 py-3 rounded-xl font-black text-[9px] uppercase hover:bg-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-center">
+                <label className="bg-[#ffcc00]/10 border border-[#ffcc00]/20 text-[#ffcc00] py-3 rounded-xl font-black text-[9px] uppercase hover:bg-[#ffcc00]/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-center">
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'custom')} className="hidden" />
                   Upload Image
                 </label>
               </div>
 
               {(toolMode === 'remove-bg' || toolMode === 'ai-eraser') && (
-                <button onClick={startCustomAction} className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-[11px] uppercase shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
+                <button onClick={startCustomAction} className="w-full bg-[#ffcc00] text-black py-4 rounded-xl font-black text-[11px] uppercase shadow-xl hover:bg-[#ffcc00] transition-all flex items-center justify-center gap-2">
                   <Icons.Sparkles /> APPLY AI ACTION
                 </button>
               )}
@@ -793,9 +793,9 @@ const App: React.FC = () => {
               {/* Configuration Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Platform</label>
+                  <label className="text-[10px] font-black text-[#ffcc00] uppercase tracking-widest">Platform</label>
                   <div className="relative">
-                    <select value={platformTarget} onChange={(e) => setPlatformTarget(e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none appearance-none cursor-pointer focus:border-blue-500/50">
+                    <select value={platformTarget} onChange={(e) => setPlatformTarget(e.target.value)} className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none appearance-none cursor-pointer focus:border-[#ffcc00]/50">
                       <option value="Instagram">Instagram</option>
                       <option value="TikTok">TikTok</option>
                       <option value="Facebook">Facebook</option>
@@ -804,12 +804,12 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Target Age</label>
-                  <input type="text" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} placeholder="e.g. 18-35" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500/50" />
+                  <label className="text-[10px] font-black text-[#ffcc00] uppercase tracking-widest">Target Age</label>
+                  <input type="text" value={ageRange} onChange={(e) => setAgeRange(e.target.value)} placeholder="e.g. 18-35" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#ffcc00]/50" />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Website URL</label>
-                  <input type="text" value={websiteLink} onChange={(e) => setWebsiteLink(e.target.value)} placeholder="www.jagohp.site" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-blue-500/50" />
+                  <label className="text-[10px] font-black text-[#ffcc00] uppercase tracking-widest">Website URL</label>
+                  <input type="text" value={websiteLink} onChange={(e) => setWebsiteLink(e.target.value)} placeholder="www.jagohp.site" className="w-full bg-[#111] border border-white/5 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#ffcc00]/50" />
                 </div>
               </div>
 
@@ -829,12 +829,12 @@ const App: React.FC = () => {
               {captionResults && (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
                   <div className="space-y-6">
-                    <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] border-l-4 border-blue-600 pl-3">Short Captions & Hooks</h4>
+                    <h4 className="text-[11px] font-black text-[#ffcc00] uppercase tracking-[0.3em] border-l-4 border-[#ffcc00] pl-3">Short Captions & Hooks</h4>
                     <div className="grid grid-cols-1 gap-4">
                       {captionResults.shortCaptions.map((cap, i) => (
                         <div key={i} className="group bg-white/5 border border-white/5 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/10 transition-all">
                           <p className="text-sm text-slate-300 italic flex-1">"{cap}"</p>
-                          <button onClick={() => copyToClipboard(cap, `short-${i}`)} className={`w-full md:w-auto px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${copyStatus === `short-${i}` ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
+                          <button onClick={() => copyToClipboard(cap, `short-${i}`)} className={`w-full md:w-auto px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${copyStatus === `short-${i}` ? 'bg-green-600 text-white' : 'bg-[#ffcc00] text-black hover:bg-[#ffcc00]'}`}>
                             {copyStatus === `short-${i}` ? 'DONE ✓' : 'COPY'}
                           </button>
                         </div>
@@ -843,10 +843,10 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="space-y-6">
-                    <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] border-l-4 border-blue-600 pl-3">Viral Hashtags</h4>
+                    <h4 className="text-[11px] font-black text-[#ffcc00] uppercase tracking-[0.3em] border-l-4 border-[#ffcc00] pl-3">Viral Hashtags</h4>
                     <div className="bg-white/5 border border-white/5 p-5 rounded-2xl flex flex-wrap gap-2">
                       {captionResults.hashtags.map((tag, i) => (
-                        <span key={i} className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-lg text-[10px] font-black uppercase border border-blue-600/10">{tag}</span>
+                        <span key={i} className="px-3 py-1 bg-[#ffcc00]/20 text-[#ffcc00] rounded-lg text-[10px] font-black uppercase border border-[#ffcc00]/10">{tag}</span>
                       ))}
                     </div>
                   </div>

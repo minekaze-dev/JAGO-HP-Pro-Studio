@@ -3,7 +3,7 @@ export type MoodType = 'modern' | 'dark' | 'fresh' | 'corporate' | 'creative' | 
 export type AspectRatioType = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
 export type PositionType = 'top-left' | 'top-center' | 'top-right' | 'bottom-center';
 export type TitleSizeType = 'h1' | 'h2' | 'h3';
-export type MockupDeviceType = 'smartphone' | 'laptop' | 'pc' | 'videotron';
+export type MockupDeviceType = 'smartphone' | 'laptop' | 'pc' | 'videotron' | 'car' | 'truck';
 
 export type CustomToolMode = 'remove-bg' | 'ai-eraser' | 'add-text' | 'add-sticker' | 'add-shape' | 'add-logo';
 
