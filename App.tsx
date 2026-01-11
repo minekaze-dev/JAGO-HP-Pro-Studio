@@ -465,20 +465,40 @@ const App: React.FC = () => {
             <div className="pt-6 border-t border-white/5 space-y-6">
               <h2 className="text-[10px] font-black text-[#ffcc00] uppercase tracking-[0.3em] flex items-center gap-2">BRANDING ASSETS</h2>
               <div className="grid grid-cols-1 gap-3">
-                <label className={`flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-2xl cursor-pointer text-[10px] font-black tracking-widest transition-all ${config.subjectImageBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black shadow-[0_0_20px_rgba(255,204,0,0.3)]' : 'bg-[#111] border-white/10 hover:border-[#ffcc00]/40 text-slate-400'}`}>
-                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'subject')} className="hidden" />
-                   <div className="flex flex-col items-center gap-2">
-                     <Icons.Image />
-                     <span>UPLOAD PRODUCT PHOTO</span>
-                   </div>
-                   {config.subjectImageBase64 && <span className="mt-2 text-[8px] bg-black/10 px-2 py-0.5 rounded uppercase font-bold">READY TO STYLIZE ✓</span>}
-                </label>
+                <div className="relative group">
+                  <label className={`flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-2xl cursor-pointer text-[10px] font-black tracking-widest transition-all ${config.subjectImageBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black shadow-[0_0_20px_rgba(255,204,0,0.3)]' : 'bg-[#111] border-white/10 hover:border-[#ffcc00]/40 text-slate-400'}`}>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'subject')} className="hidden" />
+                    <div className="flex flex-col items-center gap-2">
+                      <Icons.Image />
+                      <span>UPLOAD PRODUCT PHOTO</span>
+                    </div>
+                    {config.subjectImageBase64 && <span className="mt-2 text-[8px] bg-black/10 px-2 py-0.5 rounded uppercase font-bold">READY TO STYLIZE ✓</span>}
+                  </label>
+                  {config.subjectImageBase64 && (
+                    <button 
+                      onClick={() => setConfig(prev => ({ ...prev, subjectImageBase64: undefined }))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg hover:bg-red-700 transition-colors z-10"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 
-                <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
-                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
-                   <span>TEXT LOGO OVERLAY</span>
-                   {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
-                </label>
+                <div className="relative">
+                  <label className={`flex flex-col items-center justify-center h-16 border rounded-xl cursor-pointer text-[9px] font-black transition-all ${config.logoTextBase64 ? 'bg-[#ffcc00] border-[#ffcc00] text-black' : 'bg-[#111] border-white/5 hover:border-[#ffcc00]/40'}`}>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'text')} className="hidden" />
+                    <span>TEXT LOGO OVERLAY</span>
+                    {config.logoTextBase64 && <span className="mt-1 text-[8px] opacity-70">UPLOADED ✓</span>}
+                  </label>
+                  {config.logoTextBase64 && (
+                    <button 
+                      onClick={() => setConfig(prev => ({ ...prev, logoTextBase64: undefined }))}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg hover:bg-red-700 transition-colors z-10"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -579,17 +599,27 @@ const App: React.FC = () => {
                   
                   <div className="space-y-3">
                     <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">SCREEN CONTENT</h3>
-                    <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-[#ffcc00]/50 bg-[#ffcc00]/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
-                        {config.mockupScreenshot ? (
-                          <div className="relative h-full w-full p-2">
-                            <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
-                            <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
-                          </div>
-                        ) : (
-                          <Icons.Image />
-                        )}
-                    </label>
+                    <div className="relative">
+                      <label className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${config.mockupScreenshot ? 'border-[#ffcc00]/50 bg-[#ffcc00]/5' : 'bg-[#111] border-white/5 hover:border-white/10'}`}>
+                          <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'mockup')} className="hidden" />
+                          {config.mockupScreenshot ? (
+                            <div className="relative h-full w-full p-2">
+                              <img src={config.mockupScreenshot} className="h-full w-full object-cover rounded-lg opacity-60" />
+                              <div className="absolute inset-0 flex items-center justify-center"><span className="bg-black/80 px-3 py-1 rounded text-[8px] font-black">REPLACE</span></div>
+                            </div>
+                          ) : (
+                            <Icons.Image />
+                          )}
+                      </label>
+                      {config.mockupScreenshot && (
+                        <button 
+                          onClick={() => setConfig(prev => ({ ...prev, mockupScreenshot: undefined }))}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg hover:bg-red-700 transition-colors z-10"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -603,7 +633,7 @@ const App: React.FC = () => {
           </div>
         </main>
       ) : (
-        /* EDITOR VIEW */
+        /* EDITOR VIEW (Custom mode) */
         <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 overflow-y-auto custom-scrollbar bg-[#020202]">
           <div className="order-1 lg:order-2 lg:col-span-6 bg-[#030303] flex items-center justify-center p-4 sm:p-10 relative min-h-[45vh] lg:min-h-0 overflow-hidden">
             <div className="relative border border-white/10 shadow-2xl max-w-full">
@@ -631,7 +661,6 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {/* PRE-SELECTION GRIDS FOR STICKERS & SHAPES */}
             {toolMode === 'add-sticker' && (
               <div className="pt-4 space-y-3 animate-in fade-in duration-300">
                 <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Sticker</h3>
@@ -692,7 +721,6 @@ const App: React.FC = () => {
                         <input type="text" value={selectedLayer.content} onChange={(e) => handleUpdateLayer({ content: e.target.value })} className="w-full bg-[#111] border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#ffcc00]" />
                       </div>
                       
-                      {/* HIGHLIGHT / BACKGROUND FEATURE */}
                       <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between">
                           <label className="text-[9px] font-black uppercase text-[#ffcc00]">Text Highlight</label>
@@ -757,7 +785,6 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* RESET CANVAS AND UPLOAD IMAGE ACTION BUTTONS */}
             <div className="space-y-3 pt-6 lg:pt-8 mt-6 border-t border-white/5">
               <div className="grid grid-cols-2 gap-3">
                 <button 
@@ -795,7 +822,6 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar space-y-8">
-              {/* Configuration Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-[#ffcc00] uppercase tracking-widest">Platform</label>
@@ -830,7 +856,6 @@ const App: React.FC = () => {
                 )}
               </button>
 
-              {/* Results Display */}
               {captionResults && (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
                   <div className="space-y-6">
@@ -856,7 +881,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Displaying verified sources from Google Search grounding as required by guidelines. */}
                   {captionResults.sources && captionResults.sources.length > 0 && (
                     <div className="space-y-6">
                       <h4 className="text-[11px] font-black text-[#ffcc00] uppercase tracking-[0.3em] border-l-4 border-[#ffcc00] pl-3">Verified Sources</h4>

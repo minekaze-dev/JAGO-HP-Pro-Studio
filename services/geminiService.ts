@@ -28,7 +28,6 @@ const DEVICE_DESC_MAP = {
   truck: "a massive heavy-duty black transport semi-truck with a clean #ffcc00 yellow corporate branding wrap on its side trailer",
 };
 
-// Always extract search grounding URLs if googleSearch is used as required by guidelines.
 export const generateMarketingCaptions = async (ageRange: string, website: string, platform: string): Promise<CaptionToolsResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -73,8 +72,6 @@ export const generateMarketingCaptions = async (ageRange: string, website: strin
     });
 
     const result = JSON.parse(response.text || "{}");
-    
-    // Extracting URLs from groundingChunks as required by guidelines
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     const sources = groundingChunks?.map((chunk: any) => ({
       title: chunk.web?.title || chunk.web?.uri,
@@ -180,41 +177,44 @@ const fetchSingleVariation = async (config: PosterConfig, variationIndex: number
   const titleSizeDesc = TITLE_SIZE_MAP[config.titleSize];
 
   const hasUserText = config.title.trim() !== "" || config.tagline.trim() !== "";
-  const textInstruction = hasUserText 
-    ? `- Headline: "${config.title}" (${titleSizeDesc}).\n- Sub-Headline: "${config.tagline}" (Color: white or soft #ffcc00, minimal font).`
-    : "- VISUAL ONLY: No text elements, focus on pure #ffcc00 yellow light and obsidian black shapes.";
+  
+  // When subjectImage is provided, user wants a CLEAN IMAGE without generated text overlay.
+  const textInstruction = (config.subjectImageBase64)
+    ? `CRITICAL CONSTRAINT: Do NOT generate ANY text, headlines, labels, or typography. The final output must be a PURE CLEAN VISUAL with NO TEXT at all.`
+    : hasUserText 
+      ? `- Headline: "${config.title}" (${titleSizeDesc}).\n- Sub-Headline: "${config.tagline}" (Color: white or soft #ffcc00, minimal font).`
+      : "- VISUAL ONLY: No text elements, focus on pure #ffcc00 yellow light and obsidian black shapes.";
 
-  // Fix: Removed incorrect assignment to brandingInstruction which was causing an error.
   const heroInstruction = config.subjectImageBase64
-    ? `HERO SUBJECT: Use the provided product/subject image as the centerpiece of the poster. Integrate it into the 3D environment. Apply sharp #ffcc00 yellow rim-lights and cinematic obsidian reflections to its surface so it matches the JAGO-HP brand aesthetic perfectly. Remove its original background if necessary.`
+    ? `HERO SUBJECT: Use the provided product/subject image as the centerpiece. Integrate it seamlessly into the 3D obsidian and yellow environment. Apply sharp #ffcc00 yellow rim-lights and cinematic reflections. ABSOLUTELY NO TEXT OVERLAYS.`
     : config.logoTextBase64
       ? `- BRANDING: Place user-provided logo text at ${config.logoPosition}. Apply a subtle #ffcc00 yellow aura.`
       : "- BRANDING: Keep clean, use abstract black/yellow tech patterns only.";
 
-  const screenshotInstruction = config.mockupScreenshot 
-    ? `CRITICAL DISPLAY MAPPING: You MUST embed the user-provided screenshot image precisely onto the surface of the ${config.mockupType} (as a screen content for tech, or a high-quality side-wrap/decal for vehicles). It must be perfectly warped to fit the perspective. The screenshot should appear as a professional high-resolution graphic.`
-    : `GRAPHIC CONTENT: Generate a sleek high-tech interactive UI or racing decal set in #ffcc00 yellow that matches the ${config.mood} theme perfectly.`;
+  const screenshotInstruction = (config.mockupScreenshot && !config.subjectImageBase64)
+    ? `CRITICAL DISPLAY MAPPING: You MUST embed the user-provided screenshot image precisely onto the surface of the ${config.mockupType}.`
+    : `GRAPHIC CONTENT: Generate a sleek high-tech interactive UI set in #ffcc00 yellow that matches the ${config.mood} theme perfectly.`;
 
-  let mainPrompt = `JAGO-HP PREMIUM ADVERTISING POSTER:
+  let mainPrompt = `JAGO-HP PREMIUM ADVERTISING VISUAL:
 BRAND DNA: Deep Obsidian Black and Vibrant #ffcc00 Yellow.
-${config.subjectImageBase64 ? "HERO MODE: CENTERED PRODUCT ADVERTISING." : "MOCKUP PLATFORM: " + (config.noMockup ? "No hardware" : deviceDesc)}
+${config.subjectImageBase64 ? "HERO MODE: CLEAN PRODUCT ADVERTISING (NO TEXT)." : "MOCKUP PLATFORM: " + (config.noMockup ? "No hardware" : deviceDesc)}
 ${heroInstruction}
 ${screenshotInstruction}
 MOOD STYLE: ${moodDesc}.
-TYPOGRAPHY: ${textInstruction}
+${textInstruction}
 ${config.manualPrompt ? "- USER ENHANCEMENT: " + config.manualPrompt : ""}
 
 TECHNICAL SPECIFICATIONS:
-- Lighting: Global illumination, volumetric yellow rays, cinematic shadows, high-end gloss reflections.
-- Composition: Dynamic 3D perspective, balanced weight, professional advertising studio quality.
+- Lighting: Global illumination, volumetric yellow rays, cinematic shadows.
+- Composition: Dynamic 3D perspective, balanced weight.
 - Ratio: ${config.ratio}.
-- Theme: Dark Elite JAGO-HP Branding.`;
+- Final Rule: If HERO SUBJECT is used, output must be a clean professional photo with ZERO text.`;
 
   const parts: any[] = [{ text: mainPrompt }];
   
   if (config.subjectImageBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.subjectImageBase64.split(',')[1] } });
-  if (config.logoTextBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
-  if (config.mockupScreenshot) parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
+  if (config.logoTextBase64 && !config.subjectImageBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.logoTextBase64.split(',')[1] } });
+  if (config.mockupScreenshot && !config.subjectImageBase64) parts.push({ inlineData: { mimeType: 'image/png', data: config.mockupScreenshot.split(',')[1] } });
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
